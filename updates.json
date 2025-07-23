@@ -1,0 +1,23 @@
+{
+  "version": "0.1.1",
+  "notes": "Bug fixes and performance improvements",
+  "pub_date": "2024-01-15T00:00:00Z",
+  "platforms": {
+    "darwin-x86_64": {
+      "signature": "YOUR_SIGNATURE_HERE",
+      "url": "https://releases.servermint.gg/ServerMint_0.1.1_x64.dmg"
+    },
+    "darwin-aarch64": {
+      "signature": "YOUR_SIGNATURE_HERE",
+      "url": "https://releases.servermint.gg/ServerMint_0.1.1_aarch64.dmg"
+    },
+    "linux-x86_64": {
+      "signature": "YOUR_SIGNATURE_HERE",
+      "url": "https://releases.servermint.gg/ServerMint_0.1.1_amd64.AppImage"
+    },
+    "windows-x86_64": {
+      "signature": "YOUR_SIGNATURE_HERE",
+      "url": "https://releases.servermint.gg/ServerMint_0.1.1_x64-setup.exe"
+    }
+  }
+} 

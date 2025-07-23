@@ -1,0 +1,111 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "enables the default permissions",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "fs:default",
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [
+        {
+          "path": "C:/servermint"
+        },
+        {
+          "path": "C:/servermint/**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        {
+          "path": "C:/servermint"
+        },
+        {
+          "path": "C:/servermint/**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [
+        {
+          "path": "C:/servermint/**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        {
+          "path": "C:/servermint/**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [
+        {
+          "path": "C:/servermint/**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        {
+          "path": "C:/servermint/**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [
+        {
+          "path": "C:/servermint"
+        },
+        {
+          "path": "C:/servermint/**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-remove",
+      "allow": [
+        {
+          "path": "C:/servermint/**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://**"
+        },
+        {
+          "url": "http://**"
+        },
+        {
+          "url": "https://download1322.mediafire.com/**"
+        },
+        {
+          "url": "https://piston-data.mojang.com/**"
+        },
+        {
+          "url": "https://piston-meta.mojang.com/**"
+        }
+      ]
+    },
+    "shell:default",
+    "shell:allow-execute",
+    "shell:allow-open",
+    "fs:default",
+    "updater:default",
+    "process:default"
+  ]
+}

@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+*.pem
+ssl/*.pem
+README.md
+.vscode
+.idea
+*.md
+!README.md 

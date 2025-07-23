@@ -1,0 +1,14 @@
+# Splash Sound File Placeholder
+
+This is a placeholder for the splash sound file.
+
+To add your own splash sound:
+
+1. Replace this file with an actual .mp3 audio file
+2. Recommended duration: 2-3 seconds
+3. Recommended format: MP3 or WAV
+4. Keep file size under 500KB for fast loading
+
+You can also create a .wav version as a fallback by placing a file named "splash-sound.wav" in this same directory.
+
+The sound will play at 30% volume when the app starts. 
