@@ -21,11 +21,12 @@
     
     <!-- Left sidebar -->
     <v-navigation-drawer
-      permanent
+      :model-value="true"
       width="80"
       class="sidebar-nav"
       elevation="3"
       height="100vh"
+      location="left"
     >
       <div class="d-flex flex-column h-100 pa-3">
         <div class="text-center py-4">
@@ -344,9 +345,12 @@ html, body {
 .sidebar-nav {
   background-color: rgba(18, 18, 18, 0.95) !important;
   border-right: 1px solid rgba(74, 222, 128, 0.1) !important;
-  position: relative;
-  z-index: 1;
-  height: 100% !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 1000 !important;
+  height: 100vh !important;
+  transform: none !important;
 }
 .sidebar-list {
   background-color: transparent;
@@ -420,5 +424,6 @@ html, body {
 .main-content {
   overflow-y: auto;
   height: 100vh;
+  margin-left: 80px !important;
 }
 </style>

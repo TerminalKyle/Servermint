@@ -288,18 +288,37 @@ eula=true`;
       console.log(`Opening folder: ${path}`);
       
       try {
-        await invoke('plugin:shell|open', { path });
+        // Use the custom Rust command to open folder
+        await invoke('open_folder', { path });
         console.log(`Successfully opened folder: ${path}`);
         return { success: true };
       } catch (error) {
-        console.error(`Tauri API error opening folder: ${error}`);
-        console.log(`Falling back to mock implementation`);
-        return { success: true };
+        console.error(`Custom command error: ${error}`);
+        // Fallback to shell execute if custom command fails
+        try {
+          await invoke('plugin:shell|execute', { 
+            program: 'explorer.exe', 
+            args: [path],
+            options: {}
+          });
+          console.log(`Successfully opened folder using shell: ${path}`);
+          return { success: true };
+        } catch (shellError) {
+          console.error(`Shell error: ${shellError}`);
+          console.log(`Falling back to mock implementation`);
+          console.log(`[MOCK] Opening folder: ${path}`);
+          return { success: true };
+        }
       }
     } catch (error) {
       console.error(`Error opening folder: ${error}`);
       throw error;
     }
+  },
+  
+  async openDir(path) {
+    // Alias for openFolder for consistency
+    return this.openFolder(path);
   },
   
   async getJavaPath() {
@@ -1099,11 +1118,29 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   },
   
   removeProject(projectId) {
-    const index = this.projects.findIndex(p => p.id === projectId);
-    if (index !== -1) {
-      this.projects.splice(index, 1);
-      this.saveProjects();
-      console.log('Project removed:', projectId);
+    const project = this.projects.find(p => p.id === projectId);
+    if (project) {
+      // Remove the project folder from filesystem
+      this.deleteProjectFolder(project.location);
+      
+      // Remove from projects array
+      const index = this.projects.findIndex(p => p.id === projectId);
+      if (index !== -1) {
+        this.projects.splice(index, 1);
+        this.saveProjects();
+        console.log('Project removed:', projectId);
+      }
+    }
+  },
+  
+  async deleteProjectFolder(folderPath) {
+    try {
+      console.log(`Deleting project folder: ${folderPath}`);
+      await this.tauriAPI.removeDir(folderPath);
+      console.log(`Successfully deleted project folder: ${folderPath}`);
+    } catch (error) {
+      console.error(`Error deleting project folder: ${error}`);
+      // Don't throw error - project removal should still succeed even if folder deletion fails
     }
   },
   

@@ -102,7 +102,6 @@
       ]
     },
     "shell:default",
-    "shell:allow-execute",
     "shell:allow-open",
     "fs:default",
     "updater:default",

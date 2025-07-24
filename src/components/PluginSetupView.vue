@@ -1,495 +1,606 @@
 <template>
   <div class="plugin-setup-view">
-    <!-- Header -->
-    <div class="setup-header mb-6">
-      <div class="d-flex align-center justify-space-between">
-        <div>
-          <h1 class="text-h4 font-weight-bold mb-2">Plugin & Mod Setup</h1>
-          <p class="text-body-1 text-medium-emphasis">Create and configure Minecraft plugins and mods</p>
+    <!-- Loading state -->
+    <div v-if="isLoading" class="loading-state">
+      <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+      <p class="text-body-1 text-medium-emphasis mt-4">Loading projects...</p>
+    </div>
+    
+    <!-- Main content -->
+    <div v-else>
+      <!-- Header -->
+      <div class="setup-header mb-6">
+        <div class="d-flex align-center justify-space-between">
+          <div>
+            <h1 class="text-h4 font-weight-bold mb-2">Plugin & Mod Setup</h1>
+            <p class="text-body-1 text-medium-emphasis">Create and configure Minecraft plugins and mods</p>
+          </div>
+          <v-btn
+            variant="outlined"
+            color="primary"
+            prepend-icon="mdi-arrow-left"
+            @click="$router.push('/mods')"
+            rounded="lg"
+          >
+            Back to Mods
+          </v-btn>
         </div>
+      </div>
+
+    <!-- Show existing projects if any exist -->
+    <div v-if="hasProjects" class="projects-view">
+      <div class="d-flex align-center justify-space-between mb-6">
+        <h2 class="text-h5 font-weight-medium">Your Projects</h2>
         <v-btn
-          variant="outlined"
           color="primary"
-          prepend-icon="mdi-arrow-left"
-          @click="$router.push('/mods')"
+          prepend-icon="mdi-plus"
+          @click="showWizard = true"
           rounded="lg"
         >
-          Back to Mods
+          Create New Project
         </v-btn>
+      </div>
+      
+      <div class="projects-grid">
+        <v-card
+          v-for="project in store.projects"
+          :key="project.id"
+          class="project-card mb-4"
+          elevation="2"
+          rounded="lg"
+        >
+          <div class="pa-6">
+            <div class="d-flex align-center justify-space-between mb-4">
+              <div class="d-flex align-center">
+                <v-avatar size="48" color="primary" class="mr-4">
+                  <v-icon size="24" color="white">{{ getProjectIcon(project.type) }}</v-icon>
+                </v-avatar>
+                <div>
+                  <h3 class="text-h6 font-weight-medium">{{ project.name }}</h3>
+                  <p class="text-caption text-medium-emphasis">{{ getProjectTypeName(project.type) }}</p>
+                </div>
+              </div>
+              <v-menu>
+                <template v-slot:activator="{ props }">
+                  <v-btn icon variant="text" v-bind="props">
+                    <v-icon>mdi-dots-vertical</v-icon>
+                  </v-btn>
+                </template>
+                <v-list density="compact" bg-color="surface" rounded="lg">
+                  <v-list-item @click="openProjectFolder(project)">
+                    <v-list-item-title>Open Folder</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item @click="editProject(project)">
+                    <v-list-item-title>Edit Project</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item @click="deleteProject(project)" class="text-error">
+                    <v-list-item-title>Delete Project</v-list-item-title>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
+            </div>
+            
+            <p class="text-body-2 text-medium-emphasis mb-4">{{ project.description }}</p>
+            
+            <div class="project-meta mb-4">
+              <div class="d-flex flex-wrap">
+                <v-chip size="small" color="secondary" variant="outlined" class="mr-2 mb-2">
+                  v{{ project.version }}
+                </v-chip>
+                <v-chip size="small" color="secondary" variant="outlined" class="mr-2 mb-2">
+                  MC {{ project.mcVersion }}
+                </v-chip>
+                <v-chip size="small" color="secondary" variant="outlined" class="mr-2 mb-2">
+                  {{ project.author }}
+                </v-chip>
+              </div>
+            </div>
+            
+            <div class="d-flex align-center justify-space-between">
+              <span class="text-caption text-medium-emphasis">
+                Created {{ formatDate(project.createdAt) }}
+              </span>
+              <v-btn
+                variant="outlined"
+                color="primary"
+                size="small"
+                @click="openProjectFolder(project)"
+                rounded="lg"
+              >
+                Open Project
+              </v-btn>
+            </div>
+          </div>
+        </v-card>
       </div>
     </div>
 
-    <!-- Setup Wizard -->
-    <v-card class="setup-wizard" elevation="4">
-      <!-- Progress Bar -->
-      <div class="progress-section pa-6 pb-4">
-        <div class="d-flex align-center justify-space-between mb-4">
-          <h2 class="text-h6 font-weight-medium">Setup Progress</h2>
-          <span class="text-caption text-medium-emphasis">{{ currentStep }}/{{ totalSteps }}</span>
-        </div>
-        <v-progress-linear
-          :model-value="(currentStep / totalSteps) * 100"
-          color="primary"
-          height="8"
+    <!-- Setup Wizard (shown when no projects exist or when creating new) -->
+    <div v-if="!hasProjects || showWizard" class="wizard-view">
+      <div v-if="showWizard" class="d-flex align-center justify-space-between mb-6">
+        <h2 class="text-h5 font-weight-medium">Create New Project</h2>
+        <v-btn
+          variant="outlined"
+          color="secondary"
+          @click="showWizard = false"
           rounded="lg"
-        ></v-progress-linear>
+        >
+          Cancel
+        </v-btn>
       </div>
+      
+      <v-card class="setup-wizard" elevation="4">
+        <!-- Progress Bar -->
+        <div class="progress-section pa-6 pb-4">
+          <div class="d-flex align-center justify-space-between mb-4">
+            <h2 class="text-h6 font-weight-medium">Setup Progress</h2>
+            <span class="text-caption text-medium-emphasis">{{ currentStep }}/{{ totalSteps }}</span>
+          </div>
+          <v-progress-linear
+            :model-value="(currentStep / totalSteps) * 100"
+            color="primary"
+            height="8"
+            rounded="lg"
+          ></v-progress-linear>
+        </div>
 
-      <!-- Step Content -->
-      <div class="step-content pa-6">
-        <!-- Step 1: Project Type Selection -->
-        <div v-if="currentStep === 1" class="step-1">
-          <h3 class="text-h5 font-weight-medium mb-4">Choose Your Project Type</h3>
-          <p class="text-body-1 text-medium-emphasis mb-6">
-            Select the type of project you want to create. This will determine the template and configuration options.
-          </p>
-          
-          <div class="project-types">
+        <!-- Step Content -->
+        <div class="step-content pa-6">
+          <!-- Step 1: Project Type Selection -->
+          <div v-if="currentStep === 1" class="step-1">
+            <h3 class="text-h5 font-weight-medium mb-4">Choose Your Project Type</h3>
+            <p class="text-body-1 text-medium-emphasis mb-6">
+              Select the type of project you want to create. This will determine the template and configuration options.
+            </p>
+            
+            <div class="project-types">
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-card
+                    :class="['project-type-card', { 'selected': selectedType === 'java-plugin' }]"
+                    @click="selectedType = 'java-plugin'"
+                    elevation="2"
+                    rounded="lg"
+                  >
+                    <div class="pa-6">
+                      <div class="d-flex align-center mb-4">
+                        <v-avatar size="48" color="primary" class="mr-4">
+                          <v-icon size="24" color="white">mdi-language-java</v-icon>
+                        </v-avatar>
+                        <div>
+                          <h4 class="text-h6 font-weight-medium">Java Plugin</h4>
+                          <p class="text-caption text-medium-emphasis">Bukkit/Spigot/Paper</p>
+                        </div>
+                      </div>
+                      <p class="text-body-2 text-medium-emphasis">
+                        Create plugins for Java Edition servers using the Bukkit API. Supports Spigot, Paper, and other Bukkit-based servers.
+                      </p>
+                      <div class="mt-4">
+                        <v-chip size="small" color="primary" variant="outlined" class="mr-2">Java</v-chip>
+                        <v-chip size="small" color="secondary" variant="outlined" class="mr-2">Bukkit API</v-chip>
+                        <v-chip size="small" color="secondary" variant="outlined">Maven/Gradle</v-chip>
+                      </div>
+                    </div>
+                  </v-card>
+                </v-col>
+                
+                <v-col cols="12" md="6">
+                  <v-card
+                    :class="['project-type-card', { 'selected': selectedType === 'bedrock-addon' }]"
+                    @click="selectedType = 'bedrock-addon'"
+                    elevation="2"
+                    rounded="lg"
+                  >
+                    <div class="pa-6">
+                      <div class="d-flex align-center mb-4">
+                        <v-avatar size="48" color="primary" class="mr-4">
+                          <v-icon size="24" color="white">mdi-cube-outline</v-icon>
+                        </v-avatar>
+                        <div>
+                          <h4 class="text-h6 font-weight-medium">Bedrock Addon</h4>
+                          <p class="text-caption text-medium-emphasis">Behavior & Resource Packs</p>
+                        </div>
+                      </div>
+                      <p class="text-body-2 text-medium-emphasis">
+                        Create addons for Bedrock Edition with behavior packs (scripts) and resource packs (textures/models).
+                      </p>
+                      <div class="mt-4">
+                        <v-chip size="small" color="primary" variant="outlined" class="mr-2">JavaScript</v-chip>
+                        <v-chip size="small" color="secondary" variant="outlined" class="mr-2">JSON</v-chip>
+                        <v-chip size="small" color="secondary" variant="outlined">Manifest</v-chip>
+                      </div>
+                    </div>
+                  </v-card>
+                </v-col>
+                
+                <v-col cols="12" md="6">
+                  <v-card
+                    :class="['project-type-card', { 'selected': selectedType === 'forge-mod' }]"
+                    @click="selectedType = 'forge-mod'"
+                    elevation="2"
+                    rounded="lg"
+                  >
+                    <div class="pa-6">
+                      <div class="d-flex align-center mb-4">
+                        <v-avatar size="48" color="primary" class="mr-4">
+                          <v-icon size="24" color="white">mdi-hammer-wrench</v-icon>
+                        </v-avatar>
+                        <div>
+                          <h4 class="text-h6 font-weight-medium">Forge Mod</h4>
+                          <p class="text-caption text-medium-emphasis">Client & Server Mods</p>
+                        </div>
+                      </div>
+                      <p class="text-body-2 text-medium-emphasis">
+                        Create mods for Minecraft using the Forge modding framework. Supports both client and server-side modifications.
+                      </p>
+                      <div class="mt-4">
+                        <v-chip size="small" color="primary" variant="outlined" class="mr-2">Java</v-chip>
+                        <v-chip size="small" color="secondary" variant="outlined" class="mr-2">Forge API</v-chip>
+                        <v-chip size="small" color="secondary" variant="outlined">Gradle</v-chip>
+                      </div>
+                    </div>
+                  </v-card>
+                </v-col>
+                
+                <v-col cols="12" md="6">
+                  <v-card
+                    :class="['project-type-card', { 'selected': selectedType === 'fabric-mod' }]"
+                    @click="selectedType = 'fabric-mod'"
+                    elevation="2"
+                    rounded="lg"
+                  >
+                    <div class="pa-6">
+                      <div class="d-flex align-center mb-4">
+                        <v-avatar size="48" color="primary" class="mr-4">
+                          <v-icon size="24" color="white">mdi-puzzle</v-icon>
+                        </v-avatar>
+                        <div>
+                          <h4 class="text-h6 font-weight-medium">Fabric Mod</h4>
+                          <p class="text-caption text-medium-emphasis">Lightweight Modding</p>
+                        </div>
+                      </div>
+                      <p class="text-body-2 text-medium-emphasis">
+                        Create lightweight mods using the Fabric modding framework. Fast, modern, and community-driven.
+                      </p>
+                      <div class="mt-4">
+                        <v-chip size="small" color="primary" variant="outlined" class="mr-2">Java</v-chip>
+                        <v-chip size="small" color="secondary" variant="outlined" class="mr-2">Fabric API</v-chip>
+                        <v-chip size="small" color="secondary" variant="outlined">Gradle</v-chip>
+                      </div>
+                    </div>
+                  </v-card>
+                </v-col>
+              </v-row>
+            </div>
+          </div>
+
+          <!-- Step 2: Project Configuration -->
+          <div v-if="currentStep === 2" class="step-2">
+            <h3 class="text-h5 font-weight-medium mb-4">Project Configuration</h3>
+            <p class="text-body-1 text-medium-emphasis mb-6">
+              Configure your project details and settings.
+            </p>
+            
+            <v-form ref="configForm" v-model="configValid">
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="projectConfig.name"
+                    label="Project Name"
+                    variant="outlined"
+                    :rules="[rules.required, rules.projectName]"
+                    placeholder="MyAwesomePlugin"
+                    hint="Use PascalCase for Java projects, lowercase for Bedrock"
+                    persistent-hint
+                    rounded="lg"
+                  ></v-text-field>
+                </v-col>
+                
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="projectConfig.version"
+                    label="Version"
+                    variant="outlined"
+                    :rules="[rules.required, rules.version]"
+                    placeholder="1.0.0"
+                    hint="Follow semantic versioning (e.g., 1.0.0)"
+                    persistent-hint
+                    rounded="lg"
+                  ></v-text-field>
+                </v-col>
+                
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="projectConfig.author"
+                    label="Author"
+                    variant="outlined"
+                    :rules="[rules.required]"
+                    placeholder="Your Name"
+                    rounded="lg"
+                  ></v-text-field>
+                </v-col>
+                
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="projectConfig.description"
+                    label="Description"
+                    variant="outlined"
+                    :rules="[rules.required]"
+                    placeholder="A brief description of your project"
+                    rounded="lg"
+                  ></v-text-field>
+                </v-col>
+                
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="projectConfig.website"
+                    label="Website (Optional)"
+                    variant="outlined"
+                    placeholder="https://github.com/username/project"
+                    rounded="lg"
+                  ></v-text-field>
+                </v-col>
+                
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="projectConfig.mcVersion"
+                    label="Minecraft Version"
+                    variant="outlined"
+                    :rules="[rules.required]"
+                    :placeholder="getMcVersionPlaceholder()"
+                    :hint="getMcVersionHint()"
+                    persistent-hint
+                    rounded="lg"
+                  ></v-text-field>
+                </v-col>
+                
+                <v-col cols="12" v-if="selectedType === 'java-plugin'">
+                  <v-select
+                    v-model="projectConfig.serverType"
+                    label="Server Type"
+                    variant="outlined"
+                    :items="serverTypes"
+                    :rules="[rules.required]"
+                    rounded="lg"
+                  ></v-select>
+                </v-col>
+                
+                <v-col cols="12" v-if="selectedType === 'bedrock-addon'">
+                  <v-select
+                    v-model="projectConfig.addonType"
+                    label="Addon Type"
+                    variant="outlined"
+                    :items="addonTypes"
+                    :rules="[rules.required]"
+                    multiple
+                    rounded="lg"
+                  ></v-select>
+                </v-col>
+              </v-row>
+            </v-form>
+          </div>
+
+          <!-- Step 3: Project Location -->
+          <div v-if="currentStep === 3" class="step-3">
+            <h3 class="text-h5 font-weight-medium mb-4">Project Location</h3>
+            <p class="text-body-1 text-medium-emphasis mb-6">
+              Choose where to create your project files.
+            </p>
+            
             <v-row>
-              <v-col cols="12" md="6">
-                <v-card
-                  :class="['project-type-card', { 'selected': selectedType === 'java-plugin' }]"
-                  @click="selectedType = 'java-plugin'"
-                  elevation="2"
+              <v-col cols="12">
+                <v-text-field
+                  v-model="projectConfig.location"
+                  label="Project Directory"
+                  variant="outlined"
+                  :rules="[rules.required]"
+                  placeholder="C:\servermint\projects\MyPlugin"
+                  prepend-inner-icon="mdi-folder"
                   rounded="lg"
                 >
-                  <div class="pa-6">
-                    <div class="d-flex align-center mb-4">
-                      <v-avatar size="48" color="primary" class="mr-4">
-                        <v-icon size="24" color="white">mdi-language-java</v-icon>
-                      </v-avatar>
-                      <div>
-                        <h4 class="text-h6 font-weight-medium">Java Plugin</h4>
-                        <p class="text-caption text-medium-emphasis">Bukkit/Spigot/Paper</p>
-                      </div>
-                    </div>
-                    <p class="text-body-2 text-medium-emphasis">
-                      Create plugins for Java Edition servers using the Bukkit API. Supports Spigot, Paper, and other Bukkit-based servers.
-                    </p>
-                    <div class="mt-4">
-                      <v-chip size="small" color="primary" variant="outlined" class="mr-2">Java</v-chip>
-                      <v-chip size="small" color="secondary" variant="outlined" class="mr-2">Bukkit API</v-chip>
-                      <v-chip size="small" color="secondary" variant="outlined">Maven/Gradle</v-chip>
-                    </div>
+                  <template v-slot:append>
+                    <v-btn
+                      variant="text"
+                      color="primary"
+                      @click="selectProjectLocation"
+                      rounded="lg"
+                    >
+                      Browse
+                    </v-btn>
+                  </template>
+                </v-text-field>
+              </v-col>
+              
+              <v-col cols="12">
+                <v-alert
+                  type="info"
+                  variant="tonal"
+                  rounded="lg"
+                  class="mb-4"
+                >
+                  <template v-slot:prepend>
+                    <v-icon>mdi-information</v-icon>
+                  </template>
+                  <div>
+                    <strong>Recommended structure:</strong><br>
+                    <code class="text-caption">{{ getRecommendedStructure() }}</code>
                   </div>
+                </v-alert>
+              </v-col>
+            </v-row>
+          </div>
+
+          <!-- Step 4: Dependencies & Features -->
+          <div v-if="currentStep === 4" class="step-4">
+            <h3 class="text-h5 font-weight-medium mb-4">Dependencies & Features</h3>
+            <p class="text-body-1 text-medium-emphasis mb-6">
+              Select additional dependencies and features for your project.
+            </p>
+            
+            <v-row>
+              <v-col cols="12" v-if="selectedType === 'java-plugin'">
+                <v-card variant="outlined" rounded="lg" class="mb-4">
+                  <v-card-title class="text-h6">Common Dependencies</v-card-title>
+                  <v-card-text>
+                    <v-checkbox
+                      v-model="projectConfig.dependencies.vault"
+                      label="Vault (Economy API)"
+                      color="primary"
+                    ></v-checkbox>
+                    <v-checkbox
+                      v-model="projectConfig.dependencies.worldedit"
+                      label="WorldEdit"
+                      color="primary"
+                    ></v-checkbox>
+                    <v-checkbox
+                      v-model="projectConfig.dependencies.worldguard"
+                      label="WorldGuard"
+                      color="primary"
+                    ></v-checkbox>
+                    <v-checkbox
+                      v-model="projectConfig.dependencies.placeholderapi"
+                      label="PlaceholderAPI"
+                      color="primary"
+                    ></v-checkbox>
+                  </v-card-text>
                 </v-card>
               </v-col>
               
-              <v-col cols="12" md="6">
-                <v-card
-                  :class="['project-type-card', { 'selected': selectedType === 'bedrock-addon' }]"
-                  @click="selectedType = 'bedrock-addon'"
-                  elevation="2"
-                  rounded="lg"
-                >
-                  <div class="pa-6">
-                    <div class="d-flex align-center mb-4">
-                      <v-avatar size="48" color="primary" class="mr-4">
-                        <v-icon size="24" color="white">mdi-cube-outline</v-icon>
-                      </v-avatar>
-                      <div>
-                        <h4 class="text-h6 font-weight-medium">Bedrock Addon</h4>
-                        <p class="text-caption text-medium-emphasis">Behavior & Resource Packs</p>
-                      </div>
-                    </div>
-                    <p class="text-body-2 text-medium-emphasis">
-                      Create addons for Bedrock Edition with behavior packs (scripts) and resource packs (textures/models).
-                    </p>
-                    <div class="mt-4">
-                      <v-chip size="small" color="primary" variant="outlined" class="mr-2">JavaScript</v-chip>
-                      <v-chip size="small" color="secondary" variant="outlined" class="mr-2">JSON</v-chip>
-                      <v-chip size="small" color="secondary" variant="outlined">Manifest</v-chip>
-                    </div>
-                  </div>
-                </v-card>
-              </v-col>
-              
-              <v-col cols="12" md="6">
-                <v-card
-                  :class="['project-type-card', { 'selected': selectedType === 'forge-mod' }]"
-                  @click="selectedType = 'forge-mod'"
-                  elevation="2"
-                  rounded="lg"
-                >
-                  <div class="pa-6">
-                    <div class="d-flex align-center mb-4">
-                      <v-avatar size="48" color="primary" class="mr-4">
-                        <v-icon size="24" color="white">mdi-hammer-wrench</v-icon>
-                      </v-avatar>
-                      <div>
-                        <h4 class="text-h6 font-weight-medium">Forge Mod</h4>
-                        <p class="text-caption text-medium-emphasis">Client & Server Mods</p>
-                      </div>
-                    </div>
-                    <p class="text-body-2 text-medium-emphasis">
-                      Create mods for Minecraft using the Forge modding framework. Supports both client and server-side modifications.
-                    </p>
-                    <div class="mt-4">
-                      <v-chip size="small" color="primary" variant="outlined" class="mr-2">Java</v-chip>
-                      <v-chip size="small" color="secondary" variant="outlined" class="mr-2">Forge API</v-chip>
-                      <v-chip size="small" color="secondary" variant="outlined">Gradle</v-chip>
-                    </div>
-                  </div>
-                </v-card>
-              </v-col>
-              
-              <v-col cols="12" md="6">
-                <v-card
-                  :class="['project-type-card', { 'selected': selectedType === 'fabric-mod' }]"
-                  @click="selectedType = 'fabric-mod'"
-                  elevation="2"
-                  rounded="lg"
-                >
-                  <div class="pa-6">
-                    <div class="d-flex align-center mb-4">
-                      <v-avatar size="48" color="primary" class="mr-4">
-                        <v-icon size="24" color="white">mdi-puzzle</v-icon>
-                      </v-avatar>
-                      <div>
-                        <h4 class="text-h6 font-weight-medium">Fabric Mod</h4>
-                        <p class="text-caption text-medium-emphasis">Lightweight Modding</p>
-                      </div>
-                    </div>
-                    <p class="text-body-2 text-medium-emphasis">
-                      Create lightweight mods using the Fabric modding framework. Fast, modern, and community-driven.
-                    </p>
-                    <div class="mt-4">
-                      <v-chip size="small" color="primary" variant="outlined" class="mr-2">Java</v-chip>
-                      <v-chip size="small" color="secondary" variant="outlined" class="mr-2">Fabric API</v-chip>
-                      <v-chip size="small" color="secondary" variant="outlined">Gradle</v-chip>
-                    </div>
-                  </div>
+              <v-col cols="12">
+                <v-card variant="outlined" rounded="lg">
+                  <v-card-title class="text-h6">Project Features</v-card-title>
+                  <v-card-text>
+                    <v-checkbox
+                      v-model="projectConfig.features.commands"
+                      label="Commands System"
+                      color="primary"
+                    ></v-checkbox>
+                    <v-checkbox
+                      v-model="projectConfig.features.events"
+                      label="Event Handling"
+                      color="primary"
+                    ></v-checkbox>
+                    <v-checkbox
+                      v-model="projectConfig.features.config"
+                      label="Configuration Files"
+                      color="primary"
+                    ></v-checkbox>
+                    <v-checkbox
+                      v-model="projectConfig.features.database"
+                      label="Database Integration"
+                      color="primary"
+                    ></v-checkbox>
+                    <v-checkbox
+                      v-model="projectConfig.features.api"
+                      label="API for other plugins"
+                      color="primary"
+                    ></v-checkbox>
+                  </v-card-text>
                 </v-card>
               </v-col>
             </v-row>
           </div>
-        </div>
 
-        <!-- Step 2: Project Configuration -->
-        <div v-if="currentStep === 2" class="step-2">
-          <h3 class="text-h5 font-weight-medium mb-4">Project Configuration</h3>
-          <p class="text-body-1 text-medium-emphasis mb-6">
-            Configure your project details and settings.
-          </p>
-          
-          <v-form ref="configForm" v-model="configValid">
-            <v-row>
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="projectConfig.name"
-                  label="Project Name"
-                  variant="outlined"
-                  :rules="[rules.required, rules.projectName]"
-                  placeholder="MyAwesomePlugin"
-                  hint="Use PascalCase for Java projects, lowercase for Bedrock"
-                  persistent-hint
-                  rounded="lg"
-                ></v-text-field>
-              </v-col>
-              
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="projectConfig.version"
-                  label="Version"
-                  variant="outlined"
-                  :rules="[rules.required, rules.version]"
-                  placeholder="1.0.0"
-                  hint="Follow semantic versioning (e.g., 1.0.0)"
-                  persistent-hint
-                  rounded="lg"
-                ></v-text-field>
-              </v-col>
-              
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="projectConfig.author"
-                  label="Author"
-                  variant="outlined"
-                  :rules="[rules.required]"
-                  placeholder="Your Name"
-                  rounded="lg"
-                ></v-text-field>
-              </v-col>
-              
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="projectConfig.description"
-                  label="Description"
-                  variant="outlined"
-                  :rules="[rules.required]"
-                  placeholder="A brief description of your project"
-                  rounded="lg"
-                ></v-text-field>
-              </v-col>
-              
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="projectConfig.website"
-                  label="Website (Optional)"
-                  variant="outlined"
-                  placeholder="https://github.com/username/project"
-                  rounded="lg"
-                ></v-text-field>
-              </v-col>
-              
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="projectConfig.mcVersion"
-                  label="Minecraft Version"
-                  variant="outlined"
-                  :rules="[rules.required]"
-                  :placeholder="getMcVersionPlaceholder()"
-                  :hint="getMcVersionHint()"
-                  persistent-hint
-                  rounded="lg"
-                ></v-text-field>
-              </v-col>
-              
-              <v-col cols="12" v-if="selectedType === 'java-plugin'">
-                <v-select
-                  v-model="projectConfig.serverType"
-                  label="Server Type"
-                  variant="outlined"
-                  :items="serverTypes"
-                  :rules="[rules.required]"
-                  rounded="lg"
-                ></v-select>
-              </v-col>
-              
-              <v-col cols="12" v-if="selectedType === 'bedrock-addon'">
-                <v-select
-                  v-model="projectConfig.addonType"
-                  label="Addon Type"
-                  variant="outlined"
-                  :items="addonTypes"
-                  :rules="[rules.required]"
-                  multiple
-                  rounded="lg"
-                ></v-select>
-              </v-col>
-            </v-row>
-          </v-form>
-        </div>
-
-        <!-- Step 3: Project Location -->
-        <div v-if="currentStep === 3" class="step-3">
-          <h3 class="text-h5 font-weight-medium mb-4">Project Location</h3>
-          <p class="text-body-1 text-medium-emphasis mb-6">
-            Choose where to create your project files.
-          </p>
-          
-          <v-row>
-            <v-col cols="12">
-              <v-text-field
-                v-model="projectConfig.location"
-                label="Project Directory"
-                variant="outlined"
-                :rules="[rules.required]"
-                placeholder="C:\Projects\MyPlugin"
-                prepend-inner-icon="mdi-folder"
-                rounded="lg"
-              >
-                <template v-slot:append>
-                  <v-btn
-                    variant="text"
-                    color="primary"
-                    @click="selectProjectLocation"
-                    rounded="lg"
-                  >
-                    Browse
-                  </v-btn>
-                </template>
-              </v-text-field>
-            </v-col>
+          <!-- Step 5: Review & Create -->
+          <div v-if="currentStep === 5" class="step-5">
+            <h3 class="text-h5 font-weight-medium mb-4">Review & Create</h3>
+            <p class="text-body-1 text-medium-emphasis mb-6">
+              Review your project configuration before creating.
+            </p>
             
-            <v-col cols="12">
-              <v-alert
-                type="info"
-                variant="tonal"
-                rounded="lg"
-                class="mb-4"
-              >
-                <template v-slot:prepend>
-                  <v-icon>mdi-information</v-icon>
-                </template>
-                <div>
-                  <strong>Recommended structure:</strong><br>
-                  <code class="text-caption">{{ getRecommendedStructure() }}</code>
-                </div>
-              </v-alert>
-            </v-col>
-          </v-row>
-        </div>
-
-        <!-- Step 4: Dependencies & Features -->
-        <div v-if="currentStep === 4" class="step-4">
-          <h3 class="text-h5 font-weight-medium mb-4">Dependencies & Features</h3>
-          <p class="text-body-1 text-medium-emphasis mb-6">
-            Select additional dependencies and features for your project.
-          </p>
-          
-          <v-row>
-            <v-col cols="12" v-if="selectedType === 'java-plugin'">
-              <v-card variant="outlined" rounded="lg" class="mb-4">
-                <v-card-title class="text-h6">Common Dependencies</v-card-title>
-                <v-card-text>
-                  <v-checkbox
-                    v-model="projectConfig.dependencies.vault"
-                    label="Vault (Economy API)"
-                    color="primary"
-                  ></v-checkbox>
-                  <v-checkbox
-                    v-model="projectConfig.dependencies.worldedit"
-                    label="WorldEdit"
-                    color="primary"
-                  ></v-checkbox>
-                  <v-checkbox
-                    v-model="projectConfig.dependencies.worldguard"
-                    label="WorldGuard"
-                    color="primary"
-                  ></v-checkbox>
-                  <v-checkbox
-                    v-model="projectConfig.dependencies.placeholderapi"
-                    label="PlaceholderAPI"
-                    color="primary"
-                  ></v-checkbox>
-                </v-card-text>
-              </v-card>
-            </v-col>
+            <v-card variant="outlined" rounded="lg" class="mb-6">
+              <v-card-title class="text-h6">Project Summary</v-card-title>
+              <v-card-text>
+                <v-row>
+                  <v-col cols="6">
+                    <strong>Project Type:</strong><br>
+                    <span class="text-medium-emphasis">{{ getProjectTypeName() }}</span>
+                  </v-col>
+                  <v-col cols="6">
+                    <strong>Name:</strong><br>
+                    <span class="text-medium-emphasis">{{ projectConfig.name }}</span>
+                  </v-col>
+                  <v-col cols="6">
+                    <strong>Version:</strong><br>
+                    <span class="text-medium-emphasis">{{ projectConfig.version }}</span>
+                  </v-col>
+                  <v-col cols="6">
+                    <strong>Author:</strong><br>
+                    <span class="text-medium-emphasis">{{ projectConfig.author }}</span>
+                  </v-col>
+                  <v-col cols="12">
+                    <strong>Description:</strong><br>
+                    <span class="text-medium-emphasis">{{ projectConfig.description }}</span>
+                  </v-col>
+                  <v-col cols="12">
+                    <strong>Location:</strong><br>
+                    <span class="text-medium-emphasis">{{ projectConfig.location }}</span>
+                  </v-col>
+                </v-row>
+              </v-card-text>
+            </v-card>
             
-            <v-col cols="12">
-              <v-card variant="outlined" rounded="lg">
-                <v-card-title class="text-h6">Project Features</v-card-title>
-                <v-card-text>
-                  <v-checkbox
-                    v-model="projectConfig.features.commands"
-                    label="Commands System"
-                    color="primary"
-                  ></v-checkbox>
-                  <v-checkbox
-                    v-model="projectConfig.features.events"
-                    label="Event Handling"
-                    color="primary"
-                  ></v-checkbox>
-                  <v-checkbox
-                    v-model="projectConfig.features.config"
-                    label="Configuration Files"
-                    color="primary"
-                  ></v-checkbox>
-                  <v-checkbox
-                    v-model="projectConfig.features.database"
-                    label="Database Integration"
-                    color="primary"
-                  ></v-checkbox>
-                  <v-checkbox
-                    v-model="projectConfig.features.api"
-                    label="API for other plugins"
-                    color="primary"
-                  ></v-checkbox>
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
+            <v-alert
+              type="success"
+              variant="tonal"
+              rounded="lg"
+              class="mb-4"
+            >
+              <template v-slot:prepend>
+                <v-icon>mdi-check-circle</v-icon>
+              </template>
+              <div>
+                <strong>Ready to create!</strong><br>
+                Your project will be generated with all the necessary files and structure.
+              </div>
+            </v-alert>
+          </div>
         </div>
 
-        <!-- Step 5: Review & Create -->
-        <div v-if="currentStep === 5" class="step-5">
-          <h3 class="text-h5 font-weight-medium mb-4">Review & Create</h3>
-          <p class="text-body-1 text-medium-emphasis mb-6">
-            Review your project configuration before creating.
-          </p>
-          
-          <v-card variant="outlined" rounded="lg" class="mb-6">
-            <v-card-title class="text-h6">Project Summary</v-card-title>
-            <v-card-text>
-              <v-row>
-                <v-col cols="6">
-                  <strong>Project Type:</strong><br>
-                  <span class="text-medium-emphasis">{{ getProjectTypeName() }}</span>
-                </v-col>
-                <v-col cols="6">
-                  <strong>Name:</strong><br>
-                  <span class="text-medium-emphasis">{{ projectConfig.name }}</span>
-                </v-col>
-                <v-col cols="6">
-                  <strong>Version:</strong><br>
-                  <span class="text-medium-emphasis">{{ projectConfig.version }}</span>
-                </v-col>
-                <v-col cols="6">
-                  <strong>Author:</strong><br>
-                  <span class="text-medium-emphasis">{{ projectConfig.author }}</span>
-                </v-col>
-                <v-col cols="12">
-                  <strong>Description:</strong><br>
-                  <span class="text-medium-emphasis">{{ projectConfig.description }}</span>
-                </v-col>
-                <v-col cols="12">
-                  <strong>Location:</strong><br>
-                  <span class="text-medium-emphasis">{{ projectConfig.location }}</span>
-                </v-col>
-              </v-row>
-            </v-card-text>
-          </v-card>
-          
-          <v-alert
-            type="success"
-            variant="tonal"
-            rounded="lg"
-            class="mb-4"
-          >
-            <template v-slot:prepend>
-              <v-icon>mdi-check-circle</v-icon>
-            </template>
-            <div>
-              <strong>Ready to create!</strong><br>
-              Your project will be generated with all the necessary files and structure.
-            </div>
-          </v-alert>
+        <!-- Navigation Buttons -->
+        <div class="step-navigation pa-6 pt-0">
+          <div class="d-flex justify-space-between">
+            <v-btn
+              v-if="currentStep > 1"
+              variant="outlined"
+              color="secondary"
+              @click="previousStep"
+              rounded="lg"
+            >
+              <v-icon class="mr-2">mdi-arrow-left</v-icon>
+              Previous
+            </v-btn>
+            <div v-else></div>
+            
+            <v-btn
+              v-if="currentStep < totalSteps"
+              variant="contained"
+              color="primary"
+              @click="nextStep"
+              :disabled="!canProceed"
+              rounded="lg"
+            >
+              Next
+              <v-icon class="ml-2">mdi-arrow-right</v-icon>
+            </v-btn>
+            
+            <v-btn
+              v-if="currentStep === totalSteps"
+              variant="contained"
+              color="success"
+              @click="createProject"
+              :loading="creating"
+              :disabled="!configValid"
+              rounded="lg"
+            >
+              <v-icon class="mr-2">mdi-plus</v-icon>
+              Create Project
+            </v-btn>
+          </div>
         </div>
-      </div>
-
-      <!-- Navigation Buttons -->
-      <div class="step-navigation pa-6 pt-0">
-        <div class="d-flex justify-space-between">
-          <v-btn
-            v-if="currentStep > 1"
-            variant="outlined"
-            color="secondary"
-            @click="previousStep"
-            rounded="lg"
-          >
-            <v-icon class="mr-2">mdi-arrow-left</v-icon>
-            Previous
-          </v-btn>
-          <div v-else></div>
-          
-          <v-btn
-            v-if="currentStep < totalSteps"
-            variant="contained"
-            color="primary"
-            @click="nextStep"
-            :disabled="!canProceed"
-            rounded="lg"
-          >
-            Next
-            <v-icon class="ml-2">mdi-arrow-right</v-icon>
-          </v-btn>
-          
-          <v-btn
-            v-if="currentStep === totalSteps"
-            variant="contained"
-            color="success"
-            @click="createProject"
-            :loading="creating"
-            :disabled="!configValid"
-            rounded="lg"
-          >
-            <v-icon class="mr-2">mdi-plus</v-icon>
-            Create Project
-          </v-btn>
-        </div>
-      </div>
-    </v-card>
+      </v-card>
+    </div>
+    </div>
   </div>
 </template>
 
@@ -506,6 +617,7 @@ export default {
       selectedType: '',
       configValid: false,
       creating: false,
+      showWizard: false, // Show wizard only when creating new project
       
       projectConfig: {
         name: '',
@@ -562,7 +674,27 @@ export default {
         default:
           return true;
       }
+    },
+    
+    hasProjects() {
+      return this.store && this.store.projects && this.store.projects.length > 0;
+    },
+    
+    isLoading() {
+      return !this.store || !this.store.projects;
     }
+  },
+  
+  mounted() {
+    // Wait for store to be initialized
+    this.$nextTick(() => {
+      if (this.store && this.store.projects) {
+        // If no projects exist, show the wizard
+        if (this.store.projects.length === 0) {
+          this.showWizard = true;
+        }
+      }
+    });
   },
   
   methods: {
@@ -578,14 +710,60 @@ export default {
       }
     },
     
-    getProjectTypeName() {
+    getProjectTypeName(type) {
       const names = {
         'java-plugin': 'Java Plugin (Bukkit/Spigot/Paper)',
         'bedrock-addon': 'Bedrock Addon (Behavior/Resource Packs)',
         'forge-mod': 'Forge Mod',
         'fabric-mod': 'Fabric Mod'
       };
-      return names[this.selectedType] || '';
+      return names[type] || '';
+    },
+    
+    getProjectIcon(type) {
+      const icons = {
+        'java-plugin': 'mdi-language-java',
+        'bedrock-addon': 'mdi-cube-outline',
+        'forge-mod': 'mdi-hammer-wrench',
+        'fabric-mod': 'mdi-puzzle'
+      };
+      return icons[type] || 'mdi-folder';
+    },
+    
+    formatDate(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleDateString();
+    },
+    
+    openProjectFolder(project) {
+      this.store.tauriAPI.openDir(project.location);
+    },
+    
+    editProject(project) {
+      this.$router.push(`/plugin-setup/${project.id}`);
+    },
+    
+    async deleteProject(project) {
+      if (confirm(`Are you sure you want to delete project "${project.name}"? This will permanently delete the project folder and all its files. This action cannot be undone.`)) {
+        try {
+          // Show loading state
+          this.store.showToast('Deleting project...', 'info');
+          
+          // Remove project (this will also delete the folder)
+          this.store.removeProject(project.id);
+          
+          // Show success message
+          this.store.showToast(`Project "${project.name}" deleted successfully`, 'success');
+          
+          // Show wizard if no projects left
+          if (this.store.projects.length === 0) {
+            this.showWizard = true;
+          }
+        } catch (error) {
+          console.error('Error deleting project:', error);
+          this.store.showToast(`Failed to delete project: ${error.message}`, 'error');
+        }
+      }
     },
     
     getMcVersionPlaceholder() {
@@ -656,14 +834,44 @@ export default {
         // Show success message
         this.store.showToast('Project created successfully!', 'success');
         
-        // Navigate to plugin setup view (which will show the project)
-        this.$router.push('/plugin-setup');
+        // Reset wizard state and hide it
+        this.showWizard = false;
+        this.currentStep = 1;
+        this.selectedType = '';
+        this.resetProjectConfig();
       } catch (error) {
         console.error('Error creating project:', error);
         this.store.showToast('Failed to create project: ' + error.message, 'error');
       } finally {
         this.creating = false;
       }
+    },
+    
+    resetProjectConfig() {
+      this.projectConfig = {
+        name: '',
+        version: '1.0.0',
+        author: '',
+        description: '',
+        website: '',
+        mcVersion: '',
+        location: '',
+        serverType: '',
+        addonType: [],
+        dependencies: {
+          vault: false,
+          worldedit: false,
+          worldguard: false,
+          placeholderapi: false
+        },
+        features: {
+          commands: true,
+          events: true,
+          config: true,
+          database: false,
+          api: false
+        }
+      };
     },
     
     async generateProjectFiles() {
@@ -1117,6 +1325,15 @@ public class ${projectName} implements ModInitializer {
 .plugin-setup-view {
   max-width: 1200px;
   margin: 0 auto;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
 }
 
 .setup-wizard {

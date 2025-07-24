@@ -6,6 +6,44 @@ mod websocket;
 use std::sync::{Arc, Mutex};
 use server::ServerManager;
 
+#[tauri::command]
+async fn open_folder(path: String) -> Result<(), String> {
+  #[cfg(target_os = "windows")]
+  {
+    use std::process::Command;
+    
+    // Normalize path to use Windows backslashes
+    let normalized_path = path.replace('/', "\\");
+    
+    let output = Command::new("explorer.exe")
+      .arg(&normalized_path)
+      .output()
+      .map_err(|e| format!("Failed to open folder: {}", e))?;
+    
+    if !output.status.success() {
+      return Err(format!("Explorer failed with status: {}", output.status));
+    }
+    
+    Ok(())
+  }
+  
+  #[cfg(not(target_os = "windows"))]
+  {
+    use std::process::Command;
+    
+    let output = Command::new("xdg-open")
+      .arg(&path)
+      .output()
+      .map_err(|e| format!("Failed to open folder: {}", e))?;
+    
+    if !output.status.success() {
+      return Err(format!("xdg-open failed with status: {}", output.status));
+    }
+    
+    Ok(())
+  }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Ensure application directories exist
@@ -83,6 +121,9 @@ pub fn run() {
       // WebSocket commands
       websocket::ws_generate_pairing_token,
       websocket::ws_check_node_connected,
+      
+      // Utility commands
+      open_folder,
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
