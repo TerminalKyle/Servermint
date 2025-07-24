@@ -324,6 +324,42 @@ eula=true`;
       resolve(confirmed);
     });
   },
+
+  async renameFile(oldPath, newName) {
+    try {
+      console.log(`[renameFile] Renaming: ${oldPath} to ${newName}`);
+      await invoke('rename_file', { oldPath, newName });
+      console.log(`[renameFile] Successfully renamed: ${oldPath} to ${newName}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`[renameFile] Error renaming file: ${error}`);
+      throw error;
+    }
+  },
+
+  async moveFile(sourcePath, destinationPath) {
+    try {
+      console.log(`[moveFile] Moving: ${sourcePath} to ${destinationPath}`);
+      await invoke('move_file', { sourcePath, destinationPath });
+      console.log(`[moveFile] Successfully moved: ${sourcePath} to ${destinationPath}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`[moveFile] Error moving file: ${error}`);
+      throw error;
+    }
+  },
+
+  async deleteFileOrDirectory(path) {
+    try {
+      console.log(`[deleteFileOrDirectory] Deleting: ${path}`);
+      await invoke('delete_file_or_directory', { path });
+      console.log(`[deleteFileOrDirectory] Successfully deleted: ${path}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`[deleteFileOrDirectory] Error deleting: ${error}`);
+      throw error;
+    }
+  },
   
   async downloadFile(url, destination) {
     try {
@@ -1432,6 +1468,40 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       console.error(`[store] Error showing confirm dialog: ${error}`);
       // Fallback to browser confirm
       return confirm(`${title}\n\n${message}`);
+    }
+  },
+
+  // File operations
+  async renameFile(oldPath, newName) {
+    try {
+      console.log(`[store] Renaming file: ${oldPath} to ${newName}`);
+      const result = await this.tauriAPI.renameFile(oldPath, newName);
+      return result;
+    } catch (error) {
+      console.error(`[store] Error renaming file: ${error}`);
+      throw error;
+    }
+  },
+
+  async moveFile(sourcePath, destinationPath) {
+    try {
+      console.log(`[store] Moving file: ${sourcePath} to ${destinationPath}`);
+      const result = await this.tauriAPI.moveFile(sourcePath, destinationPath);
+      return result;
+    } catch (error) {
+      console.error(`[store] Error moving file: ${error}`);
+      throw error;
+    }
+  },
+
+  async deleteFileOrDirectory(path) {
+    try {
+      console.log(`[store] Deleting file/directory: ${path}`);
+      const result = await this.tauriAPI.deleteFileOrDirectory(path);
+      return result;
+    } catch (error) {
+      console.error(`[store] Error deleting file/directory: ${error}`);
+      throw error;
     }
   }
 });

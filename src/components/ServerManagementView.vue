@@ -307,7 +307,12 @@
                   </div>
                 </td>
               </tr>
-              <tr v-for="(file, index) in files" :key="index" @click="navigateToFile(file)">
+              <tr 
+                v-for="(file, index) in files" 
+                :key="index" 
+                @click="navigateToFile(file)"
+                @contextmenu.prevent="showFileContextMenu($event, file)"
+              >
                 <td>
                   <div class="d-flex align-center">
                     <v-icon class="mr-2" :color="file.isDirectory ? 'amber' : undefined">
@@ -698,7 +703,11 @@
                  </tr>
                       </thead>
                       <tbody>
-                                         <tr v-for="file in files" :key="file.name">
+                                         <tr 
+                   v-for="file in files" 
+                   :key="file.name"
+                   @contextmenu.prevent="showFileContextMenu($event, file)"
+                 >
                    <td>
                      <v-checkbox
                        v-model="selectedExportFiles"
@@ -836,6 +845,54 @@
               </v-card-actions>
             </v-card>
           </v-dialog>
+
+
+
+        <!-- Rename Dialog -->
+        <v-dialog v-model="showRenameDialog" max-width="400">
+          <v-card>
+            <v-card-title>Rename {{ contextMenu.file?.isDirectory ? 'Folder' : 'File' }}</v-card-title>
+            <v-card-text>
+              <v-text-field
+                v-model="newFileName"
+                                  :label="`New ${contextMenu.file?.isDirectory ? 'folder' : 'file'} name`"
+                variant="outlined"
+                density="compact"
+                @keyup.enter="renameFile"
+              ></v-text-field>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn variant="text" @click="showRenameDialog = false">Cancel</v-btn>
+              <v-btn color="primary" @click="renameFile" :loading="isRenaming">Rename</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
+
+        <!-- Move Dialog -->
+        <v-dialog v-model="showMoveDialog" max-width="500">
+          <v-card>
+            <v-card-title>Move {{ contextMenu.file?.isDirectory ? 'Folder' : 'File' }}</v-card-title>
+            <v-card-text>
+              <v-text-field
+                v-model="moveDestination"
+                label="Destination path"
+                variant="outlined"
+                density="compact"
+                placeholder="e.g., /plugins/backup/"
+                @keyup.enter="moveFile"
+              ></v-text-field>
+              <div class="text-caption mt-2">
+                Current: {{ contextMenu.file ? server.path + '/' + contextMenu.file.name : '' }}
+              </div>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn variant="text" @click="showMoveDialog = false">Cancel</v-btn>
+              <v-btn color="primary" @click="moveFile" :loading="isMoving">Move</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
 
         <!-- Transfer History -->
         <v-row>
@@ -1047,6 +1104,35 @@
       @saved="onFileSaved"
       @error="onFileError"
     />
+
+    <!-- Custom context menu -->
+    <div 
+      v-if="contextMenu.show" 
+      class="context-menu" 
+      :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
+    >
+      <div class="menu-item" @click="downloadSelectedFile" :class="{ disabled: !contextMenu.file || contextMenu.file.isDirectory }">
+        <v-icon class="menu-icon" color="white">mdi-download</v-icon>
+        <span>Download</span>
+      </div>
+      
+      <div class="menu-item" @click="showRenameDialog = true">
+        <v-icon class="menu-icon" color="white">mdi-pencil</v-icon>
+        <span>Rename</span>
+      </div>
+      
+      <div class="menu-item" @click="showMoveDialog = true">
+        <v-icon class="menu-icon" color="white">mdi-folder-move</v-icon>
+        <span>Move</span>
+      </div>
+      
+      <div class="menu-divider"></div>
+      
+      <div class="menu-item delete-item" @click="deleteSelectedFile">
+        <v-icon class="menu-icon" color="white">mdi-delete</v-icon>
+        <span>Delete</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1141,6 +1227,19 @@ export default {
       ],
       selectedExportFiles: [],
       selectAllFiles: false,
+      // Context menu
+      contextMenu: {
+        show: false,
+        x: 0,
+        y: 0,
+        file: null
+      },
+      showRenameDialog: false,
+      showMoveDialog: false,
+      newFileName: '',
+      moveDestination: '',
+      isRenaming: false,
+      isMoving: false,
       importMode: 'all',
       importModes: [
         { title: 'All Files', value: 'all' }
@@ -1330,6 +1429,11 @@ export default {
       this.loadFiles();
       this.loadServerSettings();
     },
+    showRenameDialog(newVal) {
+      if (newVal && this.contextMenu.file) {
+        this.newFileName = this.contextMenu.file.name;
+      }
+    },
     consoleOutput: {
       handler() {
         // Auto-scroll to bottom when new output is added, but only if user is already at bottom
@@ -1368,6 +1472,10 @@ export default {
     } catch (error) {
       console.error('Error during component cleanup:', error);
     }
+    
+    // Remove event listeners
+    document.removeEventListener('click', this.hideContextMenu);
+    document.removeEventListener('keydown', this.handleKeyDown);
   },
   mounted() {
     // Ensure component is properly mounted before any DOM operations
@@ -1375,6 +1483,10 @@ export default {
       // Initialize any DOM-dependent operations here
       this.initializeDOMOperations();
     });
+    
+    // Add event listeners for context menu
+    document.addEventListener('click', this.hideContextMenu);
+    document.addEventListener('keydown', this.handleKeyDown);
   },
   methods: {
     async fetchServerDetails() {
@@ -1735,6 +1847,99 @@ export default {
       } catch (error) {
         console.error('[deleteFile] Error:', error);
         this.store.showToast(`Failed to delete ${itemName}: ${error}`, 'error');
+      }
+    },
+
+    // Context menu methods
+    showFileContextMenu(event, file) {
+      console.log('[ContextMenu] Right-click detected on file:', file.name);
+      console.log('[ContextMenu] Event position:', event.clientX, event.clientY);
+      
+      this.contextMenu.file = file;
+      this.contextMenu.x = event.clientX;
+      this.contextMenu.y = event.clientY;
+      this.contextMenu.show = true;
+      
+      console.log('[ContextMenu] Menu should be visible:', this.contextMenu.show);
+    },
+
+    downloadSelectedFile() {
+      if (this.contextMenu.file) {
+        this.downloadFile(this.contextMenu.file);
+      }
+      this.hideContextMenu();
+    },
+
+    async deleteSelectedFile() {
+      if (this.contextMenu.file) {
+        await this.deleteFile(this.contextMenu.file);
+      }
+      this.hideContextMenu();
+    },
+
+    hideContextMenu() {
+      this.contextMenu.show = false;
+    },
+
+    handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        this.hideContextMenu();
+      }
+    },
+
+    async renameFile() {
+      if (!this.contextMenu.file || !this.newFileName.trim()) {
+        return;
+      }
+
+      this.isRenaming = true;
+      try {
+        const oldPath = this.server.path + '/' + this.contextMenu.file.name;
+        await this.store.renameFile(oldPath, this.newFileName.trim());
+        
+        this.store.showToast(`Renamed ${this.contextMenu.file.name} to ${this.newFileName.trim()}`, 'success');
+        
+        // Refresh file list
+        await this.loadFiles();
+        
+        // Close dialogs
+        this.showRenameDialog = false;
+        this.hideContextMenu();
+        this.newFileName = '';
+      } catch (error) {
+        console.error('[renameFile] Error:', error);
+        this.store.showToast(`Failed to rename file: ${error}`, 'error');
+      } finally {
+        this.isRenaming = false;
+      }
+    },
+
+    async moveFile() {
+      if (!this.contextMenu.file || !this.moveDestination.trim()) {
+        return;
+      }
+
+      this.isMoving = true;
+      try {
+        const sourcePath = this.server.path + '/' + this.contextMenu.file.name;
+        const destinationPath = this.server.path + '/' + this.moveDestination.trim() + '/' + this.contextMenu.file.name;
+        
+        await this.store.moveFile(sourcePath, destinationPath);
+        
+        this.store.showToast(`Moved ${this.contextMenu.file.name} to ${this.moveDestination.trim()}`, 'success');
+        
+        // Refresh file list
+        await this.loadFiles();
+        
+        // Close dialogs
+        this.showMoveDialog = false;
+        this.hideContextMenu();
+        this.moveDestination = '';
+      } catch (error) {
+        console.error('[moveFile] Error:', error);
+        this.store.showToast(`Failed to move file: ${error}`, 'error');
+      } finally {
+        this.isMoving = false;
       }
     },
     async loadServerSettings() {
@@ -3282,5 +3487,46 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
 
 .file-selection-container .files-table tbody tr:hover {
   background-color: rgba(74, 222, 128, 0.05) !important;
+}
+
+/* Custom context menu styling */
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  background-color: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  width: 220px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.menu-item {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+.menu-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.menu-item.disabled:hover {
+  background-color: transparent;
+}
+.menu-icon {
+  margin-right: 12px;
+  font-size: 20px;
+}
+.menu-divider {
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+.delete-item {
+  color: #ef4444;
 }
 </style> 
