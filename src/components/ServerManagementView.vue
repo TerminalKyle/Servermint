@@ -683,42 +683,64 @@
                   <div class="file-selection-container">
                     <v-table class="files-table" density="compact">
                       <thead>
-                        <tr>
-                          <th>
-                            <v-checkbox
-                              v-model="selectAllFiles"
-                              @change="toggleSelectAll"
-                              hide-details
-                            ></v-checkbox>
-                          </th>
-                          <th>Name</th>
-                          <th>Size</th>
-                          <th>Type</th>
-                        </tr>
+                                         <tr>
+                   <th>
+                     <v-checkbox
+                       v-model="selectAllFiles"
+                       @change="toggleSelectAll"
+                       hide-details
+                     ></v-checkbox>
+                   </th>
+                   <th>Name</th>
+                   <th>Size</th>
+                   <th>Type</th>
+                   <th>Actions</th>
+                 </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="file in files" :key="file.name">
-                          <td>
-                            <v-checkbox
-                              v-model="selectedExportFiles"
-                              :value="file.name"
-                              hide-details
-                            ></v-checkbox>
-                          </td>
-                          <td>
-                            <div class="d-flex align-center">
-                              <v-icon 
-                                :icon="file.isDirectory ? 'mdi-folder' : 'mdi-file'"
-                                :color="file.isDirectory ? 'amber' : 'primary'"
-                                class="mr-2"
-                                size="small"
-                              ></v-icon>
-                              {{ file.name }}
-                            </div>
-                          </td>
-                          <td>{{ file.size ? formatFileSize(file.size) : 'Unknown' }}</td>
-                          <td>{{ file.isDirectory ? 'Folder' : 'File' }}</td>
-                        </tr>
+                                         <tr v-for="file in files" :key="file.name">
+                   <td>
+                     <v-checkbox
+                       v-model="selectedExportFiles"
+                       :value="file.name"
+                       hide-details
+                     ></v-checkbox>
+                   </td>
+                   <td>
+                     <div class="d-flex align-center">
+                       <v-icon 
+                         :icon="file.isDirectory ? 'mdi-folder' : 'mdi-file'"
+                         :color="file.isDirectory ? 'amber' : 'primary'"
+                         class="mr-2"
+                         size="small"
+                       ></v-icon>
+                       {{ file.name }}
+                     </div>
+                   </td>
+                   <td>{{ file.size ? formatFileSize(file.size) : 'Unknown' }}</td>
+                   <td>{{ file.isDirectory ? 'Folder' : 'File' }}</td>
+                   <td>
+                     <div class="d-flex gap-1">
+                       <v-btn
+                         icon="mdi-download"
+                         size="small"
+                         variant="text"
+                         color="primary"
+                         @click="downloadFile(file)"
+                         :disabled="file.isDirectory"
+                         :title="file.isDirectory ? 'Cannot download folders' : 'Download file'"
+                       ></v-btn>
+                       <v-btn
+                         icon="mdi-delete"
+                         size="small"
+                         variant="text"
+                         color="error"
+                         @click="deleteFile(file)"
+                         :title="'Delete ' + (file.isDirectory ? 'folder' : 'file')"
+                       ></v-btn>
+                     </div>
+                   </td>
+                 </tr>
                       </tbody>
                     </v-table>
                   </div>
@@ -1664,29 +1686,55 @@ export default {
       }
     },
     async downloadFile(file) {
-      // In a real app, this would download the file
-      console.log(`Downloading file: ${file.name}`);
-      alert(`File download not implemented yet. Would download: ${file.name}`);
-    },
-    async deleteFile(file) {
-      if (!confirm(`Are you sure you want to delete ${file.name}?`)) {
+      if (file.isDirectory) {
+        this.store.showToast('Cannot download folders', 'warning');
         return;
       }
       
       try {
-        // In a real app, this would delete the file
-        console.log(`Deleting file: ${file.name}`);
+        const filePath = this.server.path + '/' + file.name;
+        console.log(`[downloadFile] Downloading: ${filePath}`);
         
-        // Remove from the files array
-        const index = this.files.findIndex(f => f.name === file.name);
-        if (index !== -1) {
-          this.files.splice(index, 1);
+        // Use the existing download method from store
+        await this.store.downloadFile(filePath, file.name);
+        this.store.showToast(`Downloaded ${file.name}`, 'success');
+      } catch (error) {
+        console.error('[downloadFile] Error:', error);
+        this.store.showToast(`Failed to download ${file.name}: ${error}`, 'error');
+      }
+    },
+    
+    async deleteFile(file) {
+      const itemType = file.isDirectory ? 'folder' : 'file';
+      const itemName = file.name;
+      
+      // Show confirmation dialog
+      const confirmed = await this.store.showConfirmDialog(
+        `Delete ${itemType}`,
+        `Are you sure you want to delete "${itemName}"? This action cannot be undone.`
+      );
+      
+      if (!confirmed) return;
+      
+      try {
+        const filePath = this.server.path + '/' + file.name;
+        console.log(`[deleteFile] Deleting: ${filePath}`);
+        
+        if (file.isDirectory) {
+          // Delete directory recursively
+          await this.store.removeDirectory(filePath);
+        } else {
+          // Delete single file
+          await this.store.removeFile(filePath);
         }
         
-        alert(`File deletion not fully implemented yet. Would delete: ${file.name}`);
+        this.store.showToast(`Deleted ${itemName}`, 'success');
+        
+        // Refresh the file list
+        await this.loadFiles();
       } catch (error) {
-        console.error('Error deleting file:', error);
-        alert(`Error deleting file: ${error.message || 'Unknown error'}`);
+        console.error('[deleteFile] Error:', error);
+        this.store.showToast(`Failed to delete ${itemName}: ${error}`, 'error');
       }
     },
     async loadServerSettings() {

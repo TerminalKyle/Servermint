@@ -291,6 +291,39 @@ eula=true`;
       throw error;
     }
   },
+
+  async removeFile(filePath) {
+    try {
+      console.log(`[removeFile] Removing file: ${filePath}`);
+      await remove(filePath);
+      console.log(`[removeFile] Successfully removed: ${filePath}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`[removeFile] Error removing file: ${error}`);
+      throw error;
+    }
+  },
+
+  async removeDirectory(dirPath) {
+    try {
+      console.log(`[removeDirectory] Removing directory: ${dirPath}`);
+      await remove(dirPath, { recursive: true });
+      console.log(`[removeDirectory] Successfully removed: ${dirPath}`);
+      return { success: true };
+    } catch (error) {
+      console.error(`[removeDirectory] Error removing directory: ${error}`);
+      throw error;
+    }
+  },
+
+  async showConfirmDialog(title, message) {
+    return new Promise((resolve) => {
+      // For now, use browser confirm dialog
+      // In a real app, you might want to use a custom modal
+      const confirmed = confirm(`${title}\n\n${message}`);
+      resolve(confirmed);
+    });
+  },
   
   async downloadFile(url, destination) {
     try {
@@ -1365,6 +1398,41 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   showToast(message, type = 'info') {
     // This would integrate with your toast notification system
     console.log(`Toast: ${message} (${type})`);
+  },
+
+  // File operations
+  async removeFile(filePath) {
+    try {
+      console.log(`[store] Removing file: ${filePath}`);
+      const result = await this.tauriAPI.removeFile(filePath);
+      return result;
+    } catch (error) {
+      console.error(`[store] Error removing file: ${error}`);
+      throw error;
+    }
+  },
+
+  async removeDirectory(dirPath) {
+    try {
+      console.log(`[store] Removing directory: ${dirPath}`);
+      const result = await this.tauriAPI.removeDirectory(dirPath);
+      return result;
+    } catch (error) {
+      console.error(`[store] Error removing directory: ${error}`);
+      throw error;
+    }
+  },
+
+  async showConfirmDialog(title, message) {
+    try {
+      console.log(`[store] Showing confirm dialog: ${title}`);
+      const result = await this.tauriAPI.showConfirmDialog(title, message);
+      return result;
+    } catch (error) {
+      console.error(`[store] Error showing confirm dialog: ${error}`);
+      // Fallback to browser confirm
+      return confirm(`${title}\n\n${message}`);
+    }
   }
 });
 
