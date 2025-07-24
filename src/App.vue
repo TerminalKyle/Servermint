@@ -47,17 +47,6 @@
           ></v-list-item>
           
           <v-list-item
-            prepend-icon="mdi-download-circle"
-            value="premade"
-            :active="$route.path === '/premade'"
-            @click="$router.push('/premade')"
-            active-color="primary"
-            class="sidebar-item mb-2"
-            :class="{ 'active-item': $route.path === '/premade' }"
-            rounded="lg"
-          ></v-list-item>
-          
-          <v-list-item
             prepend-icon="mdi-puzzle-outline"
             value="mods"
             :active="$route.path === '/mods'"
@@ -65,6 +54,17 @@
             active-color="primary"
             class="sidebar-item mb-2"
             :class="{ 'active-item': $route.path === '/mods' }"
+            rounded="lg"
+          ></v-list-item>
+          
+          <v-list-item
+            prepend-icon="mdi-plus-circle"
+            value="plugin-setup"
+            :active="$route.path === '/plugin-setup'"
+            @click="$router.push('/plugin-setup')"
+            active-color="primary"
+            class="sidebar-item mb-2"
+            :class="{ 'active-item': $route.path === '/plugin-setup' }"
             rounded="lg"
           ></v-list-item>
           
@@ -182,6 +182,7 @@ export default {
         '/': 'Server Library',
         '/premade': 'Premade Servers',
         '/mods': 'Mods & Plugins',
+        '/plugin-setup': 'Plugin Setup',
         '/backups': 'Backups',
         '/nodes': 'Server Nodes'
       };

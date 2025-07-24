@@ -23,11 +23,13 @@ import BackupsView from './components/BackupsView.vue'
 import ServerManagementView from './components/ServerManagementView.vue'
 import PremadeServersView from './components/PremadeServersView.vue'
 import NodesView from './components/NodesView.vue'
+import PluginSetupView from './components/PluginSetupView.vue'
 
 // Define routes
 const routes = [
   { path: '/', name: 'Servers', component: ServersView },
   { path: '/mods', name: 'Mods', component: ModsView },
+  { path: '/plugin-setup', name: 'PluginSetup', component: PluginSetupView },
   { path: '/backups', name: 'Backups', component: BackupsView },
   { path: '/server/:serverId', name: 'ServerManagement', component: ServerManagementView },
   { path: '/premade', name: 'PremadeServers', component: PremadeServersView },
