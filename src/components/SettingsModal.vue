@@ -79,6 +79,14 @@
                   label="Minimize to system tray"
                   color="primary"
                   hide-details
+                  class="mb-3"
+                ></v-checkbox>
+                
+                <v-checkbox
+                  v-model="settings.general.showServerIPs"
+                  label="Show server IP addresses"
+                  color="primary"
+                  hide-details
                   class="mb-5"
                 ></v-checkbox>
                 

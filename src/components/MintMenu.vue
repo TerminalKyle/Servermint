@@ -111,7 +111,7 @@ export default {
           description: 'Start all offline servers',
           icon: 'mdi-play-circle',
           color: 'success',
-          action: () => this.startAllServers()
+          action: async () => await this.startAllServers()
         },
         {
           id: 'stop-all-servers',
@@ -119,7 +119,7 @@ export default {
           description: 'Stop all running servers',
           icon: 'mdi-stop-circle',
           color: 'error',
-          action: () => this.stopAllServers()
+          action: async () => await this.stopAllServers()
         },
         {
           id: 'backup-all-servers',
@@ -127,7 +127,7 @@ export default {
           description: 'Create backups for all servers',
           icon: 'mdi-backup-restore',
           color: 'warning',
-          action: () => this.backupAllServers()
+          action: async () => await this.backupAllServers()
         },
         
         // Settings
@@ -143,7 +143,7 @@ export default {
           title: 'Check Updates',
           description: 'Check for application updates',
           icon: 'mdi-update',
-          action: () => this.checkUpdates()
+          action: async () => await this.checkUpdates()
         },
         
         // File Operations
@@ -170,7 +170,7 @@ export default {
           description: 'Restart ServerMint',
           icon: 'mdi-restart',
           color: 'warning',
-          action: () => this.restartApp()
+          action: async () => await this.restartApp()
         },
         {
           id: 'quit-app',
@@ -178,7 +178,17 @@ export default {
           description: 'Close ServerMint',
           icon: 'mdi-exit-to-app',
           color: 'error',
-          action: () => this.quitApp()
+          action: async () => await this.quitApp()
+        },
+        
+        // Privacy
+        {
+          id: 'toggle-ips',
+          title: store.settings.general.showServerIPs ? 'Hide Server IPs' : 'Show Server IPs',
+          description: store.settings.general.showServerIPs ? 'Hide server IP addresses' : 'Show server IP addresses',
+          icon: store.settings.general.showServerIPs ? 'mdi-eye-off' : 'mdi-eye',
+          color: 'info',
+          action: () => this.toggleServerIPs()
         }
       ]
     }
@@ -273,58 +283,55 @@ export default {
         await command.action();
         this.hideMenu();
         
+        // Refresh server list for server-related operations
+        if (['start-all-servers', 'stop-all-servers', 'backup-all-servers', 'refresh-servers'].includes(command.id)) {
+          if (this.$root && this.$root.store && this.$root.store.loadServers) {
+            await this.$root.store.loadServers();
+          }
+        }
+        
         // Show success toast
-        if (window.showSuccess) {
-          window.showSuccess('Command Executed', `"${command.title}" completed successfully.`);
+        if (this.$root && this.$root.store && this.$root.store.showToast) {
+          this.$root.store.showToast(`"${command.title}" completed successfully.`, 'success');
         }
       } catch (error) {
         console.error(`[MintMenu] Error executing command: ${error}`);
         
         // Show error toast
-        if (window.showError) {
-          window.showError('Command Failed', `Failed to execute "${command.title}": ${error.message}`);
+        if (this.$root && this.$root.store && this.$root.store.showToast) {
+          this.$root.store.showToast(`Failed to execute "${command.title}": ${error.message}`, 'error');
         }
       }
     },
     
     // Command implementations
     async startAllServers() {
-      const offlineServers = store.servers.filter(server => server.status === 'offline');
-      if (offlineServers.length === 0) {
+      const result = await store.startAllServers();
+      if (result.count === 0) {
         throw new Error('No offline servers to start');
       }
-      
-      for (const server of offlineServers) {
-        await store.startServer(server.id);
-      }
+      return result;
     },
     
     async stopAllServers() {
-      const onlineServers = store.servers.filter(server => server.status === 'online');
-      if (onlineServers.length === 0) {
+      const result = await store.stopAllServers();
+      if (result.count === 0) {
         throw new Error('No running servers to stop');
       }
-      
-      for (const server of onlineServers) {
-        await store.stopServer(server.id);
-      }
+      return result;
     },
     
     async backupAllServers() {
-      const servers = store.servers.filter(server => server.status !== 'installing');
-      if (servers.length === 0) {
+      const result = await store.backupAllServers();
+      if (result.count === 0) {
         throw new Error('No servers to backup');
       }
-      
-      for (const server of servers) {
-        await store.createBackup(server.id);
-      }
+      return result;
     },
     
-    checkUpdates() {
-      // This would integrate with the update system
-      console.log('Checking for updates...');
-      throw new Error('Update check not implemented yet');
+    async checkUpdates() {
+      const result = await store.checkForUpdates();
+      return result;
     },
     
     openFileManager() {
@@ -346,16 +353,23 @@ export default {
       this.$router.push({ name: 'Backups' });
     },
     
-    restartApp() {
-      // This would integrate with Tauri's restart functionality
-      console.log('Restarting application...');
-      throw new Error('Restart not implemented yet');
+    async restartApp() {
+      await store.restartApplication();
     },
     
-    quitApp() {
-      // This would integrate with Tauri's quit functionality
-      console.log('Quitting application...');
-      throw new Error('Quit not implemented yet');
+    async quitApp() {
+      await store.quitApplication();
+    },
+
+    toggleServerIPs() {
+      store.toggleServerIPs();
+      // Update the command title and description
+      const toggleCommand = this.commands.find(cmd => cmd.id === 'toggle-ips');
+      if (toggleCommand) {
+        toggleCommand.title = store.settings.general.showServerIPs ? 'Hide Server IPs' : 'Show Server IPs';
+        toggleCommand.description = store.settings.general.showServerIPs ? 'Hide server IP addresses' : 'Show server IP addresses';
+        toggleCommand.icon = store.settings.general.showServerIPs ? 'mdi-eye-off' : 'mdi-eye';
+      }
     }
   }
 }

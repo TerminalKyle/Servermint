@@ -360,6 +360,89 @@ eula=true`;
       throw error;
     }
   },
+
+  // MintMenu commands
+  async startAllServers() {
+    try {
+      console.log('[startAllServers] Starting all offline servers');
+      const result = await invoke('start_all_servers');
+      console.log('[startAllServers] Result:', result);
+      return result;
+    } catch (error) {
+      console.error('[startAllServers] Error:', error);
+      throw error;
+    }
+  },
+
+  async stopAllServers() {
+    try {
+      console.log('[stopAllServers] Stopping all running servers');
+      const result = await invoke('stop_all_servers');
+      console.log('[stopAllServers] Result:', result);
+      return result;
+    } catch (error) {
+      console.error('[stopAllServers] Error:', error);
+      throw error;
+    }
+  },
+
+  async backupAllServers() {
+    try {
+      console.log('[backupAllServers] Creating backups for all servers');
+      const result = await invoke('backup_all_servers');
+      console.log('[backupAllServers] Result:', result);
+      return result;
+    } catch (error) {
+      console.error('[backupAllServers] Error:', error);
+      throw error;
+    }
+  },
+
+  async checkForUpdates() {
+    try {
+      console.log('[checkForUpdates] Checking for updates');
+      const result = await invoke('check_for_updates');
+      console.log('[checkForUpdates] Result:', result);
+      return result;
+    } catch (error) {
+      console.error('[checkForUpdates] Error:', error);
+      throw error;
+    }
+  },
+
+  async restartApplication() {
+    try {
+      console.log('[restartApplication] Restarting application');
+      await invoke('restart_application');
+      return { success: true };
+    } catch (error) {
+      console.error('[restartApplication] Error:', error);
+      throw error;
+    }
+  },
+
+  async quitApplication() {
+    try {
+      console.log('[quitApplication] Quitting application');
+      await invoke('quit_application');
+      return { success: true };
+    } catch (error) {
+      console.error('[quitApplication] Error:', error);
+      throw error;
+    }
+  },
+
+  async getMintMenuCommands() {
+    try {
+      console.log('[getMintMenuCommands] Getting MintMenu commands');
+      const result = await invoke('get_mint_menu_commands');
+      console.log('[getMintMenuCommands] Result:', result);
+      return result;
+    } catch (error) {
+      console.error('[getMintMenuCommands] Error:', error);
+      throw error;
+    }
+  },
   
   async downloadFile(url, destination) {
     try {
@@ -565,7 +648,8 @@ export const store = reactive({
     general: {
       firstRun: true,
       autoStart: false,
-      splashScreen: true
+      splashScreen: true,
+      showServerIPs: true
     },
     java: {
       path: '',
@@ -1503,6 +1587,107 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       console.error(`[store] Error deleting file/directory: ${error}`);
       throw error;
     }
+  },
+
+  // MintMenu methods
+  async startAllServers() {
+    try {
+      console.log(`[store] Starting all servers`);
+      const result = await this.tauriAPI.startAllServers();
+      return result;
+    } catch (error) {
+      console.error(`[store] Error starting all servers: ${error}`);
+      throw error;
+    }
+  },
+
+  async stopAllServers() {
+    try {
+      console.log(`[store] Stopping all servers`);
+      const result = await this.tauriAPI.stopAllServers();
+      return result;
+    } catch (error) {
+      console.error(`[store] Error stopping all servers: ${error}`);
+      throw error;
+    }
+  },
+
+  async backupAllServers() {
+    try {
+      console.log(`[store] Backing up all servers`);
+      const result = await this.tauriAPI.backupAllServers();
+      return result;
+    } catch (error) {
+      console.error(`[store] Error backing up all servers: ${error}`);
+      throw error;
+    }
+  },
+
+  async checkForUpdates() {
+    try {
+      console.log(`[store] Checking for updates`);
+      const result = await this.tauriAPI.checkForUpdates();
+      return result;
+    } catch (error) {
+      console.error(`[store] Error checking for updates: ${error}`);
+      throw error;
+    }
+  },
+
+  async restartApplication() {
+    try {
+      console.log(`[store] Restarting application`);
+      const result = await this.tauriAPI.restartApplication();
+      return result;
+    } catch (error) {
+      console.error(`[store] Error restarting application: ${error}`);
+      throw error;
+    }
+  },
+
+  async quitApplication() {
+    try {
+      console.log(`[store] Quitting application`);
+      const result = await this.tauriAPI.quitApplication();
+      return result;
+    } catch (error) {
+      console.error(`[store] Error quitting application: ${error}`);
+      throw error;
+    }
+  },
+
+  async getMintMenuCommands() {
+    try {
+      console.log(`[store] Getting MintMenu commands`);
+      const result = await this.tauriAPI.getMintMenuCommands();
+      return result;
+    } catch (error) {
+      console.error(`[store] Error getting MintMenu commands: ${error}`);
+      throw error;
+    }
+  },
+
+  toggleServerIPs() {
+    this.settings.general.showServerIPs = !this.settings.general.showServerIPs;
+    this.saveSettings();
+    console.log(`[store] Server IPs visibility toggled to: ${this.settings.general.showServerIPs}`);
+  },
+
+  getServerIP(server) {
+    if (!this.settings.general.showServerIPs) {
+      return '••••••••';
+    }
+    
+    // Extract IP from server path or use localhost
+    const path = server.path || '';
+    if (path.includes(':')) {
+      // If path contains port, extract IP
+      const parts = path.split(':');
+      return parts[0];
+    }
+    
+    // Default to localhost for local servers
+    return 'localhost';
   }
 });
 

@@ -1,57 +1,59 @@
-# Automatic Updater Setup Guide
+# 🚀 Tauri Updater Setup Guide
 
-This guide explains how to set up automatic updates for your ServerMint Tauri application.
+## 📋 Prerequisites
 
-## Overview
+1. **Your signing keys are already generated** ✅
+2. **Public key is configured in tauri.conf.json** ✅
+3. **Private key is ready for signing** ✅
 
-The automatic updater system includes:
-- **Automatic update checking** on app startup and every 30 minutes
-- **Automatic download** of updates when available
-- **User notifications** with update details and progress
-- **Automatic installation** with app restart
+## 🔧 Setup Steps
 
-## Prerequisites
+### 1. Set Environment Variables
 
-1. **Tauri CLI v2** installed
-2. **Code signing certificate** for your platform
-3. **Web server** to host your updates.json and release files
+**Option A: Use the provided script**
+```bash
+# Run the setup script
+setup-updater.bat
+```
 
-## Setup Steps
+**Option B: Set manually**
+```bash
+# Set the private key environment variable
+set TAURI_SIGNING_PRIVATE_KEY=dW50cnVzdGVkIGNvbW1lbnQ6IHJzaWduIGVuY3J5cHRlZCBzZWNyZXQga2V5ClJXUlRZMEl5YzloZjVQSGhyZkNoY2ZZRldhRm56K0gyc1BMSjFLYWhCQmY2WjdkWk9Dd0FBQkFBQUFBQUFBQUFBQUlBQUFBQU00dEVtbDR4RWZkTytLU3UzYkZzR0lFOVYrSTh5MjVEOGFLRDhadHpEeS94MzdRcnFYRnNZb1Y5ME1KalF3bzJUeFdKNXpNOUsweHB2SWJqVGQzVmZvTVNpTjhuMzJySjFFOEdDSG1IZ2lsT2hHbHh6dzd2SWRWMnlyYUR1cVZVS0ErMUdZd1Uyd3c9Cg==
+```
 
-### 1. Generate Code Signing Keys
-
-First, generate your code signing keys:
+### 2. Build and Sign Your Application
 
 ```bash
-# Generate private key
-tauri signer generate -w ~/.tauri/servermint.key
-
-# Generate public key
-tauri signer generate -w ~/.tauri/servermint.key -p
+# Run the build and sign script
+build-and-sign.bat
 ```
 
-### 2. Update Configuration
+This will:
+- Build for Windows (your current platform)
+- Sign the Windows installer with your private key
+- Create installers in `src-tauri/target/release/bundle/`
 
-#### Update `src-tauri/tauri.conf.json`:
+**Note:** For cross-platform builds (macOS, Linux), you'll need to set up cross-compilation. See the Cross-Platform Build section below.
 
-Replace the placeholder values in the updater configuration:
+### 3. Generate Signatures
 
-```json
-{
-  "updater": {
-    "active": true,
-    "endpoints": [
-      "https://your-domain.com/updates.json"
-    ],
-    "dialog": true,
-    "pubkey": "YOUR_PUBLIC_KEY_HERE"
-  }
-}
+```bash
+# Run the signature generation script
+generate-signatures.bat
 ```
 
-#### Update `updates.json`:
+This will output signatures like:
+```
+Windows signature:
+dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHNpZ25hdHVyZQpSV1IxOU5nZU5HNk5nTTZPNjJlanptN1JBNFRoNVJsaEhuWDJxTSt5Q2V3eHJ6MVA5QVZVNVVaTAo=
+```
 
-Replace the placeholder values with your actual information:
+**Note:** This will only generate signatures for Windows builds. For other platforms, see the Cross-Platform Build section.
+
+### 4. Update Your updates.json
+
+Replace the placeholder signatures with the real ones:
 
 ```json
 {
@@ -60,185 +62,126 @@ Replace the placeholder values with your actual information:
   "pub_date": "2024-01-15T00:00:00Z",
   "platforms": {
     "darwin-x86_64": {
-      "signature": "YOUR_SIGNATURE_HERE",
-      "url": "https://your-domain.com/ServerMint_0.1.1_x64.dmg"
+      "signature": "REAL_SIGNATURE_FROM_STEP_3",
+      "url": "https://releases.servermint.gg/ServerMint_0.1.1_x64.dmg"
     },
     "darwin-aarch64": {
-      "signature": "YOUR_SIGNATURE_HERE",
-      "url": "https://your-domain.com/ServerMint_0.1.1_aarch64.dmg"
+      "signature": "REAL_SIGNATURE_FROM_STEP_3",
+      "url": "https://releases.servermint.gg/ServerMint_0.1.1_aarch64.dmg"
     },
     "linux-x86_64": {
-      "signature": "YOUR_SIGNATURE_HERE",
-      "url": "https://your-domain.com/ServerMint_0.1.1_amd64.AppImage"
+      "signature": "REAL_SIGNATURE_FROM_STEP_3",
+      "url": "https://releases.servermint.gg/ServerMint_0.1.1_amd64.AppImage"
     },
     "windows-x86_64": {
-      "signature": "YOUR_SIGNATURE_HERE",
-      "url": "https://your-domain.com/ServerMint_0.1.1_x64-setup.exe"
+      "signature": "REAL_SIGNATURE_FROM_STEP_3",
+      "url": "https://releases.servermint.gg/ServerMint_0.1.1_x64-setup.exe"
     }
   }
 }
 ```
 
-### 3. Build and Sign Your Application
+### 5. Upload Files to Your Server
 
-#### Build the application:
+Upload these files to `https://releases.servermint.gg/`:
 
-```bash
-npm run tauri:build
-```
+**Windows:**
+- `src-tauri/target/release/bundle/msi/ServerMint_0.1.1_x64-setup.msi` → `ServerMint_0.1.1_x64-setup.exe`
+- OR `src-tauri/target/release/bundle/nsis/ServerMint_0.1.1_x64-setup.exe` → `ServerMint_0.1.1_x64-setup.exe`
 
-#### Sign the release files:
+**Update file:**
+- `updates.json` → `updates.json`
 
-```bash
-# For each platform, sign the release file
-tauri signer sign ~/.tauri/servermint.key path/to/your/release/file
-```
+**Note:** For macOS and Linux builds, see the Cross-Platform Build section below.
 
-### 4. Generate Update Signatures
+### 6. Test the Updater
 
-For each platform's release file, generate the signature:
+1. **Build a test version** with a lower version number
+2. **Run the app** and check for updates
+3. **Verify** the update process works
 
-```bash
-# Example for Windows
-tauri signer sign ~/.tauri/servermint.key src-tauri/target/release/bundle/msi/ServerMint_0.1.1_x64-setup.msi
+## 🔄 Release Process
 
-# Example for macOS
-tauri signer sign ~/.tauri/servermint.key src-tauri/target/release/bundle/dmg/ServerMint_0.1.1_x64.dmg
+For each new release:
 
-# Example for Linux
-tauri signer sign ~/.tauri/servermint.key src-tauri/target/release/bundle/appimage/ServerMint_0.1.1_amd64.AppImage
-```
+1. **Update version** in `src-tauri/tauri.conf.json`
+2. **Update version** in `updates.json`
+3. **Update pub_date** in `updates.json`
+4. **Run** `build-and-sign.bat`
+5. **Run** `generate-signatures.bat`
+6. **Update** `updates.json` with new signatures
+7. **Upload** all files to your server
 
-### 5. Host Your Updates
+## 🌐 Cross-Platform Builds
 
-1. **Upload your release files** to your web server
-2. **Upload the `updates.json`** file to your web server
-3. **Ensure HTTPS** is enabled (required for security)
+### macOS Builds
 
-### 6. Update Your Version
+To build for macOS from Windows, you'll need:
 
-When releasing a new version:
+1. **Install Rust targets:**
+   ```bash
+   rustup target add x86_64-apple-darwin
+   rustup target add aarch64-apple-darwin
+   ```
 
-1. **Update the version** in `src-tauri/Cargo.toml`
-2. **Update the version** in `src-tauri/tauri.conf.json`
-3. **Build and sign** the new release
-4. **Update `updates.json`** with the new version information
-5. **Upload** the new release files and updated `updates.json`
+2. **Install cross-compilation tools:**
+   ```bash
+   # Install osxcross (requires WSL or Linux)
+   # Or use GitHub Actions for automated builds
+   ```
 
-## How It Works
+3. **Build for macOS:**
+   ```bash
+   npx tauri build --target x86_64-apple-darwin
+   npx tauri build --target aarch64-apple-darwin
+   ```
 
-### Automatic Update Checking
+### Linux Builds
 
-The app automatically checks for updates:
-- **On startup** - When the app launches
-- **Every 30 minutes** - While the app is running
-- **Minimum 5-minute interval** - Prevents excessive checking
+To build for Linux from Windows, you'll need:
 
-### Update Flow
+1. **Install Rust targets:**
+   ```bash
+   rustup target add x86_64-unknown-linux-gnu
+   ```
 
-1. **Check for updates** - App queries your `updates.json` endpoint
-2. **Compare versions** - If a newer version is available, show notification
-3. **Auto-download** - Automatically download the update (if enabled)
-4. **User notification** - Show progress and installation options
-5. **Auto-install** - Install and restart the app (if enabled)
+2. **Use WSL or Docker:**
+   ```bash
+   # In WSL or Linux environment
+   npx tauri build --target x86_64-unknown-linux-gnu
+   ```
 
-### User Experience
+### Alternative: GitHub Actions
 
-- **Non-intrusive notifications** - Snackbar notifications for available updates
-- **Progress tracking** - Visual progress bar during download
-- **User control** - Users can choose to install later or dismiss
-- **Automatic restart** - App restarts automatically after installation
+For automated cross-platform builds, consider using GitHub Actions:
 
-## Customization
+1. **Create `.github/workflows/build.yml`**
+2. **Configure builds for all platforms**
+3. **Automatically generate signatures**
+4. **Upload to your release server**
 
-### Update Settings
+This approach is recommended for production releases.
 
-You can customize the update behavior by modifying the `UpdateManager.vue` component:
+## 🛡️ Security Notes
 
-```javascript
-shouldAutoDownload() {
-  // Check user settings for auto-download preference
-  return this.store.settings.updates.autoDownload;
-},
+- **Keep your private key secret** - never commit it to version control
+- **Backup your private key** - if you lose it, you can't sign updates
+- **Use HTTPS** for your update server
+- **Verify signatures** before distributing updates
 
-shouldAutoInstall() {
-  // Check user settings for auto-install preference
-  return this.store.settings.updates.autoInstall;
-}
-```
+## 🐛 Troubleshooting
 
-### Update Intervals
+**"Signature verification failed"**
+- Check that your public key in `tauri.conf.json` matches your private key
+- Verify the signature in `updates.json` is correct
+- Ensure the file URL is accessible
 
-Modify the check intervals in `UpdateManager.vue`:
+**"Update not found"**
+- Check that `updates.json` is accessible at the configured URL
+- Verify the version number is higher than the current version
+- Ensure the platform-specific signature is correct
 
-```javascript
-// Check every 30 minutes (default)
-this.checkInterval = setInterval(() => {
-  this.checkForUpdates();
-}, 30 * 60 * 1000);
-
-// Minimum 5 minutes between checks
-if (now - this.lastCheckTime < 5 * 60 * 1000) {
-  return;
-}
-```
-
-## Security Considerations
-
-1. **HTTPS Required** - Update endpoints must use HTTPS
-2. **Code Signing** - All releases must be properly signed
-3. **Signature Verification** - Tauri verifies signatures before installation
-4. **Public Key** - Include your public key in the configuration
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Updates not found** - Check your `updates.json` format and endpoint URL
-2. **Signature verification failed** - Ensure your release files are properly signed
-3. **Download fails** - Check your web server configuration and file URLs
-4. **Installation fails** - Verify file permissions and antivirus settings
-
-### Debug Mode
-
-Enable debug logging to troubleshoot issues:
-
-```rust
-// In src-tauri/src/lib.rs
-if cfg!(debug_assertions) {
-  app.handle().plugin(
-    tauri_plugin_log::Builder::default()
-      .level(log::LevelFilter::Debug)  // Change to Debug
-      .build(),
-  )?;
-}
-```
-
-## Testing
-
-### Local Testing
-
-1. **Build a test version** with a higher version number
-2. **Host updates.json locally** or on a test server
-3. **Test the update flow** with the lower version app
-
-### Production Testing
-
-1. **Deploy to a small group** first
-2. **Monitor update success rates**
-3. **Check user feedback** on the update process
-
-## Best Practices
-
-1. **Incremental versioning** - Use semantic versioning (e.g., 0.1.0, 0.1.1)
-2. **Release notes** - Include meaningful update notes in `updates.json`
-3. **Rollback plan** - Keep previous versions available
-4. **User communication** - Inform users about major updates
-5. **Testing** - Always test updates before wide release
-
-## Support
-
-For issues with the Tauri updater plugin, refer to:
-- [Tauri Updater Documentation](https://v2.tauri.app/plugin/updater/)
-- [Tauri Community Discord](https://discord.gg/tauri)
-- [GitHub Issues](https://github.com/tauri-apps/plugins-workspace) 
+**"Build failed"**
+- Make sure the `TAURI_SIGNING_PRIVATE_KEY` environment variable is set
+- Check that all dependencies are installed
+- Verify your Rust toolchain is up to date 

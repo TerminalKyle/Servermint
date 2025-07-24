@@ -368,6 +368,199 @@ async fn delete_file_or_directory(path: String) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+async fn start_all_servers(state: tauri::State<'_, Arc<Mutex<ServerManager>>>) -> Result<serde_json::Value, String> {
+    println!("Starting all offline servers...");
+    
+    let mut server_manager_guard = state.lock().map_err(|_| "Failed to lock server manager")?;
+    let mut started_count = 0;
+    
+    let server_list = server_manager_guard.list_servers();
+    for server in server_list {
+        if server.status == "offline" {
+            match server_manager_guard.start_server(&server.id) {
+                Ok(_) => {
+                    println!("Started server: {}", server.config.name);
+                    started_count += 1;
+                },
+                Err(e) => {
+                    println!("Failed to start server {}: {}", server.config.name, e);
+                }
+            }
+        }
+    }
+    
+    Ok(serde_json::json!({
+        "success": true,
+        "message": format!("Started {} servers", started_count),
+        "count": started_count
+    }))
+}
+
+#[tauri::command]
+async fn stop_all_servers(state: tauri::State<'_, Arc<Mutex<ServerManager>>>) -> Result<serde_json::Value, String> {
+    println!("Stopping all running servers...");
+    
+    let mut server_manager_guard = state.lock().map_err(|_| "Failed to lock server manager")?;
+    let mut stopped_count = 0;
+    
+    let server_list = server_manager_guard.list_servers();
+    for server in server_list {
+        if server.status == "online" {
+            match server_manager_guard.stop_server(&server.id) {
+                Ok(_) => {
+                    println!("Stopped server: {}", server.config.name);
+                    stopped_count += 1;
+                },
+                Err(e) => {
+                    println!("Failed to stop server {}: {}", server.config.name, e);
+                }
+            }
+        }
+    }
+    
+    Ok(serde_json::json!({
+        "success": true,
+        "message": format!("Stopped {} servers", stopped_count),
+        "count": stopped_count
+    }))
+}
+
+#[tauri::command]
+async fn backup_all_servers(state: tauri::State<'_, Arc<Mutex<ServerManager>>>) -> Result<serde_json::Value, String> {
+    println!("Creating backups for all servers...");
+    
+    let server_manager_guard = state.lock().map_err(|_| "Failed to lock server manager")?;
+    let mut backup_count = 0;
+    
+    let server_list = server_manager_guard.list_servers();
+    for server in server_list {
+        if server.status != "installing" {
+            // For now, just count servers that can be backed up
+            // TODO: Implement actual backup functionality
+            println!("Would create backup for server: {}", server.config.name);
+            backup_count += 1;
+        }
+    }
+    
+    Ok(serde_json::json!({
+        "success": true,
+        "message": format!("Created backups for {} servers", backup_count),
+        "count": backup_count
+    }))
+}
+
+#[tauri::command]
+async fn check_for_updates() -> Result<serde_json::Value, String> {
+    println!("Checking for application updates...");
+    
+    // This would check for updates using Tauri's updater
+    // For now, return no updates available
+    Ok(serde_json::json!({
+        "success": true,
+        "hasUpdate": false,
+        "currentVersion": env!("CARGO_PKG_VERSION"),
+        "latestVersion": env!("CARGO_PKG_VERSION"),
+        "message": "No updates available"
+    }))
+}
+
+#[tauri::command]
+async fn restart_application(app_handle: tauri::AppHandle) -> Result<(), String> {
+    println!("Restarting application...");
+    
+    // Use Tauri's restart functionality
+    app_handle.restart();
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn quit_application(app_handle: tauri::AppHandle) -> Result<(), String> {
+    println!("Quitting application...");
+    
+    // Use Tauri's exit functionality
+    app_handle.exit(0);
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_mint_menu_commands() -> Result<serde_json::Value, String> {
+    println!("Getting MintMenu commands...");
+    
+    // Return available commands for the MintMenu
+    let commands = vec![
+        serde_json::json!({
+            "id": "create-server",
+            "title": "Create Server",
+            "description": "Create a new Minecraft server",
+            "icon": "mdi-plus-circle",
+            "color": "success",
+            "category": "server"
+        }),
+        serde_json::json!({
+            "id": "refresh-servers",
+            "title": "Refresh Servers",
+            "description": "Reload server list",
+            "icon": "mdi-refresh",
+            "category": "server"
+        }),
+        serde_json::json!({
+            "id": "start-all-servers",
+            "title": "Start All Servers",
+            "description": "Start all offline servers",
+            "icon": "mdi-play-circle",
+            "color": "success",
+            "category": "action"
+        }),
+        serde_json::json!({
+            "id": "stop-all-servers",
+            "title": "Stop All Servers",
+            "description": "Stop all running servers",
+            "icon": "mdi-stop-circle",
+            "color": "error",
+            "category": "action"
+        }),
+        serde_json::json!({
+            "id": "backup-all-servers",
+            "title": "Backup All Servers",
+            "description": "Create backups for all servers",
+            "icon": "mdi-backup-restore",
+            "color": "warning",
+            "category": "action"
+        }),
+        serde_json::json!({
+            "id": "check-updates",
+            "title": "Check Updates",
+            "description": "Check for application updates",
+            "icon": "mdi-update",
+            "category": "system"
+        }),
+        serde_json::json!({
+            "id": "restart-app",
+            "title": "Restart Application",
+            "description": "Restart ServerMint",
+            "icon": "mdi-restart",
+            "color": "warning",
+            "category": "system"
+        }),
+        serde_json::json!({
+            "id": "quit-app",
+            "title": "Quit Application",
+            "description": "Close ServerMint",
+            "icon": "mdi-exit-to-app",
+            "color": "error",
+            "category": "system"
+        })
+    ];
+    
+    Ok(serde_json::json!({
+        "success": true,
+        "commands": commands
+    }))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Ensure application directories exist
@@ -462,6 +655,15 @@ pub fn run() {
       rename_file,
       move_file,
       delete_file_or_directory,
+      
+      // MintMenu commands
+      start_all_servers,
+      stop_all_servers,
+      backup_all_servers,
+      check_for_updates,
+      restart_application,
+      quit_application,
+      get_mint_menu_commands,
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

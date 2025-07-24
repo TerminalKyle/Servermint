@@ -13,6 +13,8 @@
   
   <!-- Main app -->
   <v-app v-else-if="!shouldShowSplash" class="app-bg">
+    <!-- MintMenu - Global Command Palette -->
+    <MintMenu />
     <!-- Green glow elements -->
     <div class="glow-effect"></div>
     <div class="glow-effect-2"></div>
@@ -94,6 +96,18 @@
         
         <v-spacer></v-spacer>
         
+        <!-- MintMenu hint -->
+        <div class="mint-menu-hint">
+          <div class="hint-text">
+            <span class="hint-label">Quick Actions</span>
+            <div class="keyboard-shortcut">
+              <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd>
+              <span class="plus">+</span>
+              <kbd>K</kbd>
+            </div>
+          </div>
+        </div>
+        
         <v-list nav density="compact" class="sidebar-list">
           <v-list-item class="settings-item">
             <SettingsModal @settings-updated="updateSettings" />
@@ -160,6 +174,7 @@ import ToastNotification from './components/ToastNotification.vue'
 import InstallerView from './components/InstallerView.vue'
 import UpdateManager from './components/UpdateManager.vue'
 import SplashScreen from './components/SplashScreen.vue'
+import MintMenu from './components/MintMenu.vue'
 import { store } from './store.js'
 
 export default {
@@ -169,7 +184,8 @@ export default {
     ToastNotification,
     InstallerView,
     UpdateManager,
-    SplashScreen
+    SplashScreen,
+    MintMenu
   },
   computed: {
     pageTitle() {
@@ -193,6 +209,9 @@ export default {
     shouldShowSplash() {
       // Check if user has disabled splash screen in settings
       return this.showSplash;
+    },
+    isMac() {
+      return navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     }
   },
   data() {
@@ -388,6 +407,52 @@ html, body {
 }
 .settings-item :deep(.settings-btn:hover) {
   background-color: rgba(255, 255, 255, 0.05);
+}
+
+.mint-menu-hint {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 8px;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.hint-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.hint-label {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.keyboard-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.keyboard-shortcut kbd {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.keyboard-shortcut .plus {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 9px;
+  font-weight: 500;
+  margin: 0 1px;
 }
 .main-container {
   max-width: 1600px;

@@ -30,7 +30,7 @@
               <!-- Server IP and Port -->
               <div v-if="serverIp && serverPort" class="server-connection-info ml-2">
                 <v-icon size="small" class="mr-1">mdi-network</v-icon>
-                <span class="text-caption">{{ serverIp }}:{{ serverPort }}</span>
+                <span class="text-caption">{{ displayedServerIp }}:{{ serverPort }}</span>
                 <v-btn
                   icon
                   variant="text"
@@ -1358,6 +1358,15 @@ export default {
         return [];
       }
     },
+    displayedServerIp() {
+      if (!this.serverIp) return null;
+      
+      if (!this.store.settings.general.showServerIPs) {
+        return '••••••••';
+      }
+      
+      return this.serverIp;
+    },
     filteredPlayers() {
       try {
         const players = this.players;
@@ -2029,7 +2038,8 @@ export default {
     
     async copyServerAddress() {
       if (this.serverIp && this.serverPort) {
-        const address = `${this.serverIp}:${this.serverPort}`;
+        const maskedIp = this.store.settings.general.showServerIPs ? this.serverIp : '••••••••';
+        const address = `${maskedIp}:${this.serverPort}`;
         try {
           await navigator.clipboard.writeText(address);
           console.log('Server address copied to clipboard:', address);
@@ -2381,7 +2391,7 @@ export default {
         Type: ${this.server.type} ${this.server.version}
         Status: ${this.server.status}
         Memory: ${this.server.memoryAllocation || 4}GB
-        Connection: ${this.serverIp || 'Unknown'}:${this.serverPort || '25565'}
+        Connection: ${this.displayedServerIp || 'Unknown'}:${this.serverPort || '25565'}
       ` : '';
       
       return `You are a helpful Minecraft server assistant. The user is asking: "${message}". ${serverInfo} Provide helpful, specific advice for Minecraft server management.`;
@@ -2571,7 +2581,7 @@ What specific aspect would you like help with?`,
     showServerStatus() {
       const status = `📊 **Server Status Report:**
 • Status: ${this.serverStatus}
-• Connection: ${this.serverIp || 'Unknown'}:${this.serverPort || '25565'}
+• Connection: ${this.displayedServerIp || 'Unknown'}:${this.serverPort || '25565'}
 • Memory: ${this.formatBytes(this.serverMetrics.memoryUsed)} / ${this.formatBytes(this.serverMetrics.memoryTotal)}
 • CPU: ${this.serverMetrics.cpuUsage.toFixed(1)}%
 • TPS: ${this.serverMetrics.tps.toFixed(1)}

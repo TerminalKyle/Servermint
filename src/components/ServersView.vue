@@ -420,8 +420,14 @@ export default {
     },
     copyPathContextMenu() {
       if (this.contextMenu.server) {
-        console.log('Copying path:', this.contextMenu.server.path);
-        navigator.clipboard.writeText(this.contextMenu.server.path);
+        const server = this.contextMenu.server;
+        const maskedPath = this.store.settings.general.showServerIPs 
+          ? server.path 
+          : server.path.replace(/localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+/g, '••••••••');
+        
+        console.log('Copying path:', maskedPath);
+        navigator.clipboard.writeText(maskedPath);
+        this.store.showToast('Server path copied to clipboard', 'success');
       }
       this.hideContextMenu();
     },
