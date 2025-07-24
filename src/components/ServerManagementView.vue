@@ -128,7 +128,7 @@
       <v-tab value="files">Files</v-tab>
       <v-tab value="players">Players</v-tab>
       <v-tab value="settings">Settings</v-tab>
-      <v-tab value="ai">AI Assistant</v-tab>
+      <v-tab value="sftp">SFTP</v-tab>
     </v-tabs>
     
     <v-window v-model="activeTab">
@@ -555,6 +555,319 @@
         </div>
       </v-window-item>
       
+      <!-- SFTP Tab -->
+      <v-window-item value="sftp">
+        <v-row>
+          <v-col cols="12">
+            <v-card class="mb-4">
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2" color="primary">mdi-folder-network</v-icon>
+                <span>SFTP File Transfer</span>
+                <v-spacer></v-spacer>
+                <v-chip
+                  :color="sftpStatus === 'connected' ? 'success' : 'warning'"
+                  variant="flat"
+                >
+                  <v-icon class="mr-2" size="small">
+                    {{ sftpStatus === 'connected' ? 'mdi-check-circle' : 'mdi-alert-circle' }}
+                  </v-icon>
+                  {{ sftpStatus === 'connected' ? 'Connected' : 'Disconnected' }}
+                </v-chip>
+              </v-card-title>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <v-row>
+          <!-- Configuration -->
+          <v-col cols="12" md="4">
+            <v-card class="mb-4">
+              <v-card-title>
+                <v-icon class="mr-2" color="primary">mdi-cog</v-icon>
+                Connection Settings
+              </v-card-title>
+              <v-card-text>
+                <v-text-field
+                  v-model="sftpConfig.host"
+                  label="Host"
+                  variant="outlined"
+                  density="comfortable"
+                  class="mb-3"
+                  prepend-inner-icon="mdi-server"
+                ></v-text-field>
+                
+                <v-row>
+                  <v-col cols="6">
+                    <v-text-field
+                      v-model="sftpConfig.port"
+                      label="Port"
+                      type="number"
+                      variant="outlined"
+                      density="comfortable"
+                      class="mb-3"
+                    ></v-text-field>
+                  </v-col>
+                  <v-col cols="6">
+                    <v-text-field
+                      v-model="sftpConfig.username"
+                      label="Username"
+                      variant="outlined"
+                      density="comfortable"
+                      class="mb-3"
+                      prepend-inner-icon="mdi-account"
+                    ></v-text-field>
+                  </v-col>
+                </v-row>
+                
+                <v-text-field
+                  v-model="sftpConfig.password"
+                  label="Password"
+                  type="password"
+                  variant="outlined"
+                  density="comfortable"
+                  class="mb-3"
+                  prepend-inner-icon="mdi-lock"
+                ></v-text-field>
+                
+                <v-text-field
+                  v-model="sftpConfig.remotePath"
+                  label="Remote Path"
+                  variant="outlined"
+                  density="comfortable"
+                  class="mb-3"
+                  prepend-inner-icon="mdi-folder"
+                ></v-text-field>
+                
+                <v-text-field
+                  v-model="sftpConfig.importPath"
+                  label="Import Path"
+                  variant="outlined"
+                  density="comfortable"
+                  class="mb-3"
+                  prepend-inner-icon="mdi-folder-download"
+                ></v-text-field>
+                
+                <v-btn
+                  color="primary"
+                  @click="testSftpConnection"
+                  :loading="sftpLoading"
+                  :disabled="!sftpConfig.host || !sftpConfig.username"
+                  block
+                >
+                  <v-icon class="mr-2">mdi-connection</v-icon>
+                  Test Connection
+                </v-btn>
+              </v-card-text>
+            </v-card>
+          </v-col>
+          
+          <!-- Export Section -->
+          <v-col cols="12" md="4">
+            <v-card class="mb-4">
+              <v-card-title>
+                <v-icon class="mr-2" color="success">mdi-upload</v-icon>
+                Export to SFTP
+              </v-card-title>
+              <v-card-text>
+                <v-select
+                  v-model="exportMode"
+                  label="Export Mode"
+                  :items="exportModes"
+                  variant="outlined"
+                  density="comfortable"
+                  class="mb-3"
+                ></v-select>
+                
+                <div v-if="exportMode === 'custom'" class="mb-3">
+                  <label class="d-block mb-2">Select Files to Export</label>
+                  <div class="file-selection-container">
+                    <v-table class="files-table" density="compact">
+                      <thead>
+                        <tr>
+                          <th>
+                            <v-checkbox
+                              v-model="selectAllFiles"
+                              @change="toggleSelectAll"
+                              hide-details
+                            ></v-checkbox>
+                          </th>
+                          <th>Name</th>
+                          <th>Size</th>
+                          <th>Type</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="file in files" :key="file.name">
+                          <td>
+                            <v-checkbox
+                              v-model="selectedExportFiles"
+                              :value="file.name"
+                              hide-details
+                            ></v-checkbox>
+                          </td>
+                          <td>
+                            <div class="d-flex align-center">
+                              <v-icon 
+                                :icon="file.isDirectory ? 'mdi-folder' : 'mdi-file'"
+                                :color="file.isDirectory ? 'amber' : 'primary'"
+                                class="mr-2"
+                                size="small"
+                              ></v-icon>
+                              {{ file.name }}
+                            </div>
+                          </td>
+                          <td>{{ file.size ? formatFileSize(file.size) : 'Unknown' }}</td>
+                          <td>{{ file.isDirectory ? 'Folder' : 'File' }}</td>
+                        </tr>
+                      </tbody>
+                    </v-table>
+                  </div>
+                </div>
+                
+                <v-btn
+                  color="success"
+                  @click="exportToSftp"
+                  :loading="exportLoading"
+                  :disabled="sftpStatus !== 'connected'"
+                  block
+                >
+                  <v-icon class="mr-2">mdi-upload</v-icon>
+                  Export Files
+                </v-btn>
+              </v-card-text>
+            </v-card>
+          </v-col>
+          
+          <!-- Import Section -->
+          <v-col cols="12" md="4">
+            <v-card class="mb-4">
+              <v-card-title>
+                <v-icon class="mr-2" color="info">mdi-download</v-icon>
+                Import from SFTP
+              </v-card-title>
+              <v-card-text>
+                <v-select
+                  v-model="importMode"
+                  label="Import Mode"
+                  :items="importModes"
+                  variant="outlined"
+                  density="comfortable"
+                  class="mb-3"
+                ></v-select>
+                
+                <v-btn
+                  color="info"
+                  @click="importFromSftp"
+                  :loading="importLoading"
+                  :disabled="sftpStatus !== 'connected'"
+                  block
+                >
+                  <v-icon class="mr-2">mdi-download</v-icon>
+                  Import Files
+                </v-btn>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+          
+          <!-- Transfer Progress -->
+          <v-dialog v-model="transferProgress.show" persistent max-width="500">
+            <v-card>
+              <v-card-title>
+                <v-icon class="mr-2" color="primary">mdi-progress-clock</v-icon>
+                {{ transferProgress.type === 'export' ? 'Exporting' : 'Importing' }} Files
+              </v-card-title>
+              <v-card-text>
+                <div class="text-center mb-4">
+                  <div class="text-h6 mb-2">{{ transferProgress.currentFile }}</div>
+                  <div class="text-caption mb-4">
+                    {{ transferProgress.filesCompleted }} of {{ transferProgress.totalFiles }} files
+                  </div>
+                  
+                  <v-progress-linear
+                    :model-value="transferProgress.percentage"
+                    color="primary"
+                    height="20"
+                    rounded
+                    class="mb-2"
+                  >
+                    <template v-slot:default="{ value }">
+                      <strong>{{ Math.ceil(value) }}%</strong>
+                    </template>
+                  </v-progress-linear>
+                  
+                  <div class="text-caption">
+                    {{ formatBytes(transferProgress.bytesTransferred) }} / {{ formatBytes(transferProgress.totalBytes) }}
+                  </div>
+                </div>
+              </v-card-text>
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn
+                  v-if="transferProgress.canCancel"
+                  color="error"
+                  variant="outlined"
+                  @click="cancelTransfer"
+                >
+                  Cancel
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
+
+        <!-- Transfer History -->
+        <v-row>
+          <v-col cols="12">
+            <v-card>
+              <v-card-title>
+                <v-icon class="mr-2" color="primary">mdi-history</v-icon>
+                Transfer History
+              </v-card-title>
+              <v-card-text>
+                <div v-if="transferHistory.length === 0" class="text-center py-4">
+                  <v-icon size="48" color="grey" class="mb-2">mdi-history</v-icon>
+                  <div class="text-subtitle-1">No transfer history</div>
+                  <p class="text-caption">Transfer history will appear here after you perform SFTP operations</p>
+                </div>
+                
+                <v-list v-else>
+                  <v-list-item
+                    v-for="(transfer, index) in transferHistory"
+                    :key="index"
+                    @click="viewTransferDetails(transfer)"
+                  >
+                    <template v-slot:prepend>
+                      <v-icon
+                        :color="transfer.status === 'completed' ? 'success' : 'error'"
+                        :icon="transfer.type === 'export' ? 'mdi-upload' : 'mdi-download'"
+                      ></v-icon>
+                    </template>
+                    
+                    <v-list-item-title>
+                      {{ transfer.type === 'export' ? 'Export' : 'Import' }} - {{ transfer.fileCount }} files
+                    </v-list-item-title>
+                    
+                    <v-list-item-subtitle>
+                      {{ formatDate(transfer.date) }} - {{ transfer.status }}
+                    </v-list-item-subtitle>
+                    
+                    <template v-slot:append>
+                      <v-chip
+                        size="small"
+                        :color="transfer.status === 'completed' ? 'success' : 'error'"
+                        variant="flat"
+                      >
+                        {{ transfer.status }}
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                </v-list>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-window-item>
+      
       <!-- AI Assistant Tab -->
       <v-window-item value="ai">
         <div class="ai-container">
@@ -787,7 +1100,44 @@ export default {
         { label: 'Backup Setup', icon: 'mdi-backup-restore', prompt: 'Help me set up automatic backups' },
         { label: 'Player Issues', icon: 'mdi-account-group', prompt: 'Players are having connection issues' }
       ],
-      isDestroyed: false
+      isDestroyed: false,
+      // SFTP Configuration
+      sftpConfig: {
+        host: '',
+        port: 22,
+        username: '',
+        password: '',
+        remotePath: '',
+        importPath: ''
+      },
+      sftpStatus: 'disconnected',
+      sftpLoading: false,
+      exportMode: 'custom',
+      exportModes: [
+        { title: 'Custom Selection', value: 'custom' },
+        { title: 'All Files', value: 'all' }
+      ],
+      selectedExportFiles: [],
+      selectAllFiles: false,
+      importMode: 'all',
+      importModes: [
+        { title: 'All Files', value: 'all' }
+      ],
+      selectedImportFiles: [],
+      transferProgress: {
+        show: false,
+        currentFile: '',
+        percentage: 0,
+        filesCompleted: 0,
+        totalFiles: 0,
+        bytesTransferred: 0,
+        totalBytes: 0,
+        canCancel: false
+      },
+      transferHistory: [],
+      remoteFileTree: [],
+      exportLoading: false,
+      importLoading: false
     }
   },
   computed: {
@@ -942,8 +1292,8 @@ export default {
   },
   watch: {
     activeTab(newTab) {
-      // Load files when switching to files tab
-      if (newTab === 'files' && this.files.length === 0) {
+      // Load files when switching to files tab or SFTP tab
+      if ((newTab === 'files' || newTab === 'sftp') && this.files.length === 0) {
         this.loadFiles();
       }
       
@@ -1224,6 +1574,8 @@ export default {
         const result = await this.store.getServerFiles(this.serverId, path);
         
         if (result.success) {
+          console.log('Files loaded:', result.files);
+          console.log('Sample file object:', result.files[0]);
           this.files = result.files;
           this.currentPath = path;
         } else {
@@ -1270,13 +1622,24 @@ export default {
       }
     },
     formatFileSize(bytes) {
+      // Handle invalid or missing size data
+      if (bytes === null || bytes === undefined || isNaN(bytes) || bytes < 0) return 'Unknown';
       if (bytes === 0) return '0 Bytes';
       
       const k = 1024;
       const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+      // Get the appropriate unit and size
+      const size = bytes / Math.pow(k, i);
+      const unit = sizes[i];
+      
+      // Format based on unit
+      if (unit === 'Bytes') {
+        return Math.round(size) + ' ' + unit;
+      } else {
+        return parseFloat(size.toFixed(2)) + ' ' + unit;
+      }
     },
     formatDate(date) {
       return new Date(date).toLocaleString();
@@ -1290,6 +1653,15 @@ export default {
       }
       
       return `${minutes}m`;
+    },
+    toggleSelectAll() {
+      if (this.selectAllFiles) {
+        // Select all files
+        this.selectedExportFiles = this.files.map(file => file.name);
+      } else {
+        // Deselect all files
+        this.selectedExportFiles = [];
+      }
     },
     async downloadFile(file) {
       // In a real app, this would download the file
@@ -2013,6 +2385,255 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
           console.warn('Error scrolling to bottom:', error);
         }
       });
+    },
+    
+    // SFTP Methods
+    async testSftpConnection() {
+      this.sftpLoading = true;
+      
+      try {
+        const result = await this.store.testSftpConnection(this.sftpConfig);
+        
+        if (result.success) {
+          this.sftpStatus = 'connected';
+          this.store.showToast('SFTP connection successful!', 'success');
+        } else {
+          this.sftpStatus = 'disconnected';
+          this.store.showToast(`SFTP connection failed: ${result.error}`, 'error');
+        }
+      } catch (error) {
+        console.error('SFTP connection error:', error);
+        this.sftpStatus = 'disconnected';
+        this.store.showToast(`SFTP connection error: ${error.message}`, 'error');
+      } finally {
+        this.sftpLoading = false;
+      }
+    },
+    
+    async exportToSftp() {
+      if (!this.sftpConfig.host || !this.sftpConfig.username) {
+        this.store.showToast('Please configure SFTP connection first', 'warning');
+        return;
+      }
+      
+      this.exportLoading = true;
+      
+      try {
+        // Determine files to export based on mode
+        let filesToExport = [];
+        
+        if (this.exportMode === 'all') {
+          // Export all server files
+          filesToExport = this.getAllServerFiles();
+        } else if (this.exportMode === 'custom') {
+          // Export selected files
+          filesToExport = this.getSelectedFiles(this.selectedExportFiles);
+        }
+        
+        if (filesToExport.length === 0) {
+          this.store.showToast('No files selected for export', 'warning');
+          return;
+        }
+        
+        // Start transfer progress
+        this.startTransferProgress('export', filesToExport.length);
+        
+        // Perform export
+        const result = await this.store.exportToSftp(
+          this.serverId,
+          this.sftpConfig,
+          filesToExport,
+          (progress) => this.updateTransferProgress(progress)
+        );
+        
+        if (result.success) {
+          this.store.showToast(`Successfully exported ${result.fileCount} files`, 'success');
+          this.addTransferHistory('export', result.fileCount, 'completed');
+        } else {
+          this.store.showToast(`Export failed: ${result.error}`, 'error');
+          this.addTransferHistory('export', 0, 'failed');
+        }
+      } catch (error) {
+        console.error('Export error:', error);
+        this.store.showToast(`Export error: ${error.message}`, 'error');
+        this.addTransferHistory('export', 0, 'failed');
+      } finally {
+        this.exportLoading = false;
+        this.stopTransferProgress();
+      }
+    },
+    
+    async importFromSftp() {
+      if (!this.sftpConfig.host || !this.sftpConfig.username) {
+        this.store.showToast('Please configure SFTP connection first', 'warning');
+        return;
+      }
+      
+      this.importLoading = true;
+      
+      try {
+        // Determine files to import based on mode
+        let filesToImport = [];
+        
+        if (this.importMode === 'all') {
+          // Import all files from remote path
+          const remoteFiles = await this.store.listRemoteFiles(this.sftpConfig, this.sftpConfig.importPath);
+          filesToImport = remoteFiles.files || [];
+        } else if (this.importMode === 'custom') {
+          // Import selected files
+          filesToImport = this.getSelectedFiles(this.selectedImportFiles);
+        }
+        
+        if (filesToImport.length === 0) {
+          this.store.showToast('No files selected for import', 'warning');
+          return;
+        }
+        
+        // Start transfer progress
+        this.startTransferProgress('import', filesToImport.length);
+        
+        // Perform import
+        const result = await this.store.importFromSftp(
+          this.serverId,
+          this.sftpConfig,
+          filesToImport,
+          (progress) => this.updateTransferProgress(progress)
+        );
+        
+        if (result.success) {
+          this.store.showToast(`Successfully imported ${result.fileCount} files`, 'success');
+          this.addTransferHistory('import', result.fileCount, 'completed');
+          
+          // Refresh files list
+          if (this.activeTab === 'files') {
+            this.loadFiles();
+          }
+        } else {
+          this.store.showToast(`Import failed: ${result.error}`, 'error');
+          this.addTransferHistory('import', 0, 'failed');
+        }
+      } catch (error) {
+        console.error('Import error:', error);
+        this.store.showToast(`Import error: ${error.message}`, 'error');
+        this.addTransferHistory('import', 0, 'failed');
+      } finally {
+        this.importLoading = false;
+        this.stopTransferProgress();
+      }
+    },
+    
+    getAllServerFiles() {
+      // Get all files from the server directory
+      const allFiles = [];
+      
+      const traverseFiles = (files, path = '') => {
+        files.forEach(file => {
+          const fullPath = path ? `${path}/${file.name}` : file.name;
+          allFiles.push({
+            name: file.name,
+            path: fullPath,
+            isDirectory: file.isDirectory,
+            size: file.size
+          });
+          
+          if (file.isDirectory && file.children) {
+            traverseFiles(file.children, fullPath);
+          }
+        });
+      };
+      
+      traverseFiles(this.files);
+      return allFiles;
+    },
+    
+    getSelectedFiles(selectedItems) {
+      // Convert selected tree items to file paths
+      const selectedFiles = [];
+      
+      selectedItems.forEach(itemId => {
+        // Find the file in the tree structure
+        const file = this.findFileInTree(this.files, itemId);
+        if (file) {
+          selectedFiles.push({
+            name: file.name,
+            path: file.path || file.name,
+            isDirectory: file.isDirectory,
+            size: file.size
+          });
+        }
+      });
+      
+      return selectedFiles;
+    },
+    
+    findFileInTree(files, itemId) {
+      for (const file of files) {
+        if (file.id === itemId) {
+          return file;
+        }
+        if (file.children) {
+          const found = this.findFileInTree(file.children, itemId);
+          if (found) return found;
+        }
+      }
+      return null;
+    },
+    
+    startTransferProgress(type, totalFiles) {
+      this.transferProgress = {
+        show: true,
+        type: type,
+        currentFile: '',
+        percentage: 0,
+        filesCompleted: 0,
+        totalFiles: totalFiles,
+        bytesTransferred: 0,
+        totalBytes: 0,
+        canCancel: true
+      };
+    },
+    
+    updateTransferProgress(progress) {
+      if (this.transferProgress.show) {
+        this.transferProgress.currentFile = progress.currentFile || '';
+        this.transferProgress.percentage = progress.percentage || 0;
+        this.transferProgress.filesCompleted = progress.filesCompleted || 0;
+        this.transferProgress.bytesTransferred = progress.bytesTransferred || 0;
+        this.transferProgress.totalBytes = progress.totalBytes || 0;
+      }
+    },
+    
+    stopTransferProgress() {
+      this.transferProgress.show = false;
+    },
+    
+    cancelTransfer() {
+      if (this.transferProgress.canCancel) {
+        // Cancel the current transfer
+        this.store.cancelSftpTransfer();
+        this.stopTransferProgress();
+        this.store.showToast('Transfer cancelled', 'warning');
+      }
+    },
+    
+    addTransferHistory(type, fileCount, status) {
+      this.transferHistory.unshift({
+        date: new Date(),
+        type: type,
+        fileCount: fileCount,
+        status: status
+      });
+      
+      // Keep only last 50 entries
+      if (this.transferHistory.length > 50) {
+        this.transferHistory = this.transferHistory.slice(0, 50);
+      }
+    },
+    
+    viewTransferDetails(transfer) {
+      // Show transfer details in a dialog
+      console.log('Transfer details:', transfer);
+      this.store.showToast(`Transfer details for ${transfer.type} on ${this.formatDate(transfer.date)}`, 'info');
     }
   }
 }
@@ -2553,5 +3174,65 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
 
 .ai-feature-card li {
   margin-bottom: 4px;
+}
+
+/* SFTP Styles */
+.file-tree {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid rgba(74, 222, 128, 0.1);
+  border-radius: 4px;
+  padding: 8px;
+  background-color: #0d0d0d;
+}
+
+.file-tree :deep(.v-treeview-node__root) {
+  color: #e0e0e0;
+}
+
+.file-tree :deep(.v-treeview-node__label) {
+  color: #e0e0e0;
+}
+
+.file-tree :deep(.v-treeview-node__toggle) {
+  color: #4ade80;
+}
+
+.file-tree :deep(.v-treeview-node--selected) {
+  background-color: rgba(74, 222, 128, 0.1);
+}
+
+.file-tree :deep(.v-treeview-node--active) {
+  background-color: rgba(74, 222, 128, 0.2);
+}
+
+.file-selection-container {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid rgba(74, 222, 128, 0.1);
+  border-radius: 4px;
+  background-color: #0d0d0d;
+}
+
+.file-selection-container .files-table {
+  background-color: transparent !important;
+}
+
+.file-selection-container .files-table th {
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.file-selection-container .files-table td {
+  color: #e0e0e0 !important;
+  border-bottom: 1px solid rgba(74, 222, 128, 0.05) !important;
+}
+
+.file-selection-container .files-table tbody tr:hover {
+  background-color: rgba(74, 222, 128, 0.05) !important;
 }
 </style> 

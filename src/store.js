@@ -2,7 +2,7 @@ import { reactive } from 'vue'
 // Import Tauri APIs directly
 import { invoke } from '@tauri-apps/api/core'
 
-import { remove, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import { remove, readTextFile, writeTextFile, readDir } from '@tauri-apps/plugin-fs';
 // Import HTTP plugin is not needed since we're using invoke directly
 // We'll use the browser's fetch API for simple HTTP requests
 
@@ -98,26 +98,88 @@ const tauriAPI = {
   
   async readDir(path) {
     try {
-      console.log(`Reading directory: ${path}`);
+      console.log(`[readDir] Reading directory: ${path}`);
       
       try {
-        const result = await invoke('plugin:fs|read_dir', { path });
-        console.log(`Successfully read directory: ${path}`);
-        return result;
+        // Use the proper Tauri FS API function
+        console.log(`[readDir] Calling readDir(${path})...`);
+        const result = await readDir(path);
+        console.log(`[readDir] Successfully read directory: ${path}`);
+        console.log(`[readDir] Raw directory contents:`, result);
+        console.log(`[readDir] Result type:`, typeof result);
+        console.log(`[readDir] Result length:`, Array.isArray(result) ? result.length : 'not an array');
+        
+        if (!Array.isArray(result)) {
+          console.error(`[readDir] Result is not an array:`, result);
+          throw new Error('readDir did not return an array');
+        }
+        
+        // Tauri FS API returns an array of file entries
+        // Each entry should have: name, size, modified, isDirectory
+        const files = await Promise.all(result.map(async (file, index) => {
+          console.log(`[readDir] Processing file entry ${index}:`, file);
+          console.log(`[readDir] File entry type:`, typeof file);
+          console.log(`[readDir] File entry keys:`, Object.keys(file));
+          
+          let fileSize = 0;
+          let fileModified = new Date();
+          
+          // Check if the file object has size information from readDir
+          if (file.size !== undefined && file.size !== null) {
+            fileSize = file.size;
+            console.log(`[readDir] Using size from readDir: ${fileSize}`);
+          } else {
+            // If no size from readDir, get size from our custom Rust command
+            try {
+              const filePath = path.endsWith('/') || path.endsWith('\\') ? path + file.name : path + '/' + file.name;
+              
+              if (file.isDirectory) {
+                // Get folder size for directories
+                console.log(`[readDir] Getting folder size for: ${filePath}`);
+                fileSize = await invoke('get_folder_size', { folderPath: filePath });
+                console.log(`[readDir] Folder size from Rust: ${fileSize}`);
+              } else {
+                // Get file size for files
+                console.log(`[readDir] Getting file size for: ${filePath}`);
+                fileSize = await invoke('get_file_size', { filePath });
+                console.log(`[readDir] File size from Rust: ${fileSize}`);
+              }
+            } catch (sizeError) {
+              console.warn(`[readDir] Could not get size for ${file.name}:`, sizeError);
+              fileSize = 0;
+            }
+          }
+          
+          if (file.modified !== undefined && file.modified !== null) {
+            fileModified = file.modified;
+            console.log(`[readDir] Using modified from readDir: ${fileModified}`);
+          }
+          
+          return {
+            name: file.name || file.path?.split('/').pop() || 'unknown',
+            size: fileSize,
+            modified: fileModified,
+            isDirectory: Boolean(file.isDirectory)
+          };
+        }));
+        
+        console.log(`[readDir] Processed files:`, files);
+        return files;
       } catch (error) {
-        console.error(`Tauri API error reading directory: ${error}`);
-        console.log(`Falling back to mock implementation`);
+        console.error(`[readDir] Tauri API error reading directory: ${error}`);
+        console.log(`[readDir] Error details:`, error);
+        console.log(`[readDir] Falling back to mock implementation`);
         
         // If the directory doesn't exist, return empty array
-        if (error.includes('cannot find the path') || 
-            error.includes('os error 3') ||
-            error.includes('does not exist')) {
-          console.log(`Directory doesn't exist, returning empty array`);
+        if (error.toString().includes('cannot find the path') || 
+            error.toString().includes('os error 3') ||
+            error.toString().includes('does not exist')) {
+          console.log(`[readDir] Directory doesn't exist, returning empty array`);
           return [];
         }
         
         // Only return mock data if it's a different error
-        console.log(`Returning mock directory contents for: ${path}`);
+        console.log(`[readDir] Returning mock directory contents for: ${path}`);
         return [
           { name: 'server.jar', size: 35728392, modified: new Date(), isDirectory: false },
           { name: 'server.properties', size: 1204, modified: new Date(), isDirectory: false },
@@ -128,7 +190,7 @@ const tauriAPI = {
         ];
       }
     } catch (error) {
-      console.error(`Error reading directory: ${error}`);
+      console.error(`[readDir] Error reading directory: ${error}`);
       throw error;
     }
   },
@@ -313,6 +375,74 @@ eula=true`;
     } catch (error) {
       console.error(`Error opening folder: ${error}`);
       throw error;
+    }
+  },
+  
+  // SFTP Methods
+  async testSftpConnection(config) {
+    try {
+      console.log('Testing SFTP connection:', config.host);
+      const result = await invoke('test_sftp_connection', { config });
+      console.log('SFTP connection test result:', result);
+      return result;
+    } catch (error) {
+      console.error('SFTP connection test error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  
+  async exportToSftp(serverId, config, files) {
+    try {
+      console.log(`Exporting ${files.length} files to SFTP`);
+      const result = await invoke('export_to_sftp', { 
+        server_id: serverId, 
+        config, 
+        files 
+      });
+      console.log('SFTP export result:', result);
+      return result;
+    } catch (error) {
+      console.error('SFTP export error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  
+  async importFromSftp(serverId, config, files) {
+    try {
+      console.log(`Importing ${files.length} files from SFTP`);
+      const result = await invoke('import_from_sftp', { 
+        server_id: serverId, 
+        config, 
+        files 
+      });
+      console.log('SFTP import result:', result);
+      return result;
+    } catch (error) {
+      console.error('SFTP import error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  
+  async listRemoteFiles(config, path) {
+    try {
+      console.log('Listing remote files:', path);
+      const result = await invoke('list_remote_files', { config, path });
+      console.log('Remote files result:', result);
+      return result;
+    } catch (error) {
+      console.error('List remote files error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  
+  async cancelSftpTransfer() {
+    try {
+      console.log('Cancelling SFTP transfer');
+      await invoke('cancel_sftp_transfer');
+      return { success: true };
+    } catch (error) {
+      console.error('Cancel SFTP transfer error:', error);
+      return { success: false, error: error.message };
     }
   },
   
@@ -1141,6 +1271,60 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     } catch (error) {
       console.error(`Error deleting project folder: ${error}`);
       // Don't throw error - project removal should still succeed even if folder deletion fails
+    }
+  },
+  
+  // SFTP Methods
+  async testSftpConnection(config) {
+    try {
+      console.log('Testing SFTP connection:', config.host);
+      const result = await this.tauriAPI.testSftpConnection(config);
+      return result;
+    } catch (error) {
+      console.error('SFTP connection test error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  
+  async exportToSftp(serverId, config, files) {
+    try {
+      console.log(`Exporting ${files.length} files to SFTP`);
+      const result = await this.tauriAPI.exportToSftp(serverId, config, files);
+      return result;
+    } catch (error) {
+      console.error('SFTP export error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  
+  async importFromSftp(serverId, config, files) {
+    try {
+      console.log(`Importing ${files.length} files from SFTP`);
+      const result = await this.tauriAPI.importFromSftp(serverId, config, files);
+      return result;
+    } catch (error) {
+      console.error('SFTP import error:', error);
+      return { success: false, error: error.message };
+    }
+  },
+  
+  async listRemoteFiles(config, path) {
+    try {
+      console.log('Listing remote files:', path);
+      const result = await this.tauriAPI.listRemoteFiles(config, path);
+      return result;
+    } catch (error) {
+      console.error('List remote files error:', error);
+      return { success: false, error: error.message, files: [] };
+    }
+  },
+  
+  cancelSftpTransfer() {
+    try {
+      console.log('Cancelling SFTP transfer');
+      this.tauriAPI.cancelSftpTransfer();
+    } catch (error) {
+      console.error('Cancel SFTP transfer error:', error);
     }
   },
   
