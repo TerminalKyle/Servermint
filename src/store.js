@@ -331,48 +331,43 @@ eula=true`;
 
 
 
+// Create the reactive store
 export const store = reactive({
-  // Server state
+  // Server management
   servers: [],
+  serverProcesses: new Map(),
+  serverOutputs: new Map(),
+  downloadProgress: new Map(),
   
-  // Initialize the store
-  init() {
-    this.loadSettings();
-  },
+  // Project management
+  projects: [],
   
   // Settings
   settings: {
     general: {
       firstRun: true,
-      startWithSystem: true,
-      checkForUpdates: true,
-      autoDownloadUpdates: true,
-      autoInstallUpdates: true,
-      minimizeToTray: false,
-      defaultServerPath: 'C:/servermint/servers',
-      defaultGameVersion: '1.21.2'
-    },
-    appearance: {
-      darkMode: true,
-      accentColor: '#4ade80'
+      autoStart: false,
+      splashScreen: true
     },
     java: {
-      javaPath: 'auto',
-      customJavaPath: '',
-      memory: 4,
-      useCustomJvmArgs: false,
-      jvmArgs: '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200'
+      path: '',
+      version: '17'
     },
-    advanced: {
-      dataPath: 'C:/Users/user/AppData/Roaming/ServerMint',
-      enableLogging: false,
-      enableDevMode: false
+    server: {
+      defaultPort: 25565,
+      maxMemory: '2G',
+      autoBackup: true
     }
   },
   
-  // Server process state
-  runningServers: {},
-  downloadProgress: {},
+  // Tauri API wrapper
+  tauriAPI,
+  
+  // Initialize the store
+  init() {
+    this.loadSettings();
+    this.loadProjects(); // Load projects on store initialization
+  },
   
   // Methods
   async loadServers() {
@@ -484,10 +479,10 @@ export const store = reactive({
       // Note: We don't add to backend here because setup_server will handle it
       
       // Initialize download progress
-      this.downloadProgress[currentServerId] = {
+      this.downloadProgress.set(currentServerId, {
         progress: 0,
         status: 'preparing'
-      };
+      });
       
       // Create the server directory
       console.log(`Creating server directory at: ${serverData.path}`);
@@ -499,11 +494,11 @@ export const store = reactive({
       }
       
       // Update download progress
-      this.downloadProgress[currentServerId].status = 'downloading';
+      this.downloadProgress.get(currentServerId).status = 'downloading';
       
       // Use the new setup_server command from Rust
       console.log('Setting up server using Rust backend...');
-      this.downloadProgress[currentServerId].status = 'setting up server';
+      this.downloadProgress.get(currentServerId).status = 'setting up server';
       
       try {
         await invoke('setup_server', {
@@ -529,8 +524,8 @@ export const store = reactive({
           newServer.id = newServerId;
           
           // Update download progress with new ID
-          this.downloadProgress[newServerId] = this.downloadProgress[currentServerId];
-          delete this.downloadProgress[currentServerId];
+          this.downloadProgress.set(newServerId, this.downloadProgress.get(currentServerId));
+          this.downloadProgress.delete(currentServerId);
           
           // Update current server ID
           currentServerId = newServerId;
@@ -552,7 +547,7 @@ export const store = reactive({
       }
       
       // Update download progress
-      this.downloadProgress[currentServerId].progress = 80;
+      this.downloadProgress.get(currentServerId).progress = 80;
       
       // Create start scripts
       console.log('Creating start scripts');
@@ -586,8 +581,8 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       newServer.status = 'offline';
       
       // Update download progress
-      this.downloadProgress[currentServerId].progress = 100;
-      this.downloadProgress[currentServerId].status = 'completed';
+      this.downloadProgress.get(currentServerId).progress = 100;
+      this.downloadProgress.get(currentServerId).status = 'completed';
       
       // Refresh servers list from backend to get the actual server data
       await this.loadServers();
@@ -614,13 +609,13 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         
         // Update download progress
         if (server.id) {
-          this.downloadProgress[server.id].status = 'failed';
-          this.downloadProgress[server.id].error = error.message || 'Unknown error';
+          this.downloadProgress.get(server.id).status = 'failed';
+          this.downloadProgress.get(server.id).error = error.message || 'Unknown error';
         }
       }
       
       // Clean up download progress on failure
-      delete this.downloadProgress[currentServerId];
+      this.downloadProgress.delete(currentServerId);
       
       return { success: false, error };
     }
@@ -650,7 +645,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       };
       
       // Add to running servers
-      this.runningServers[serverId] = serverProcess;
+      this.serverProcesses.set(serverId, serverProcess);
       
       // Use the Tauri backend to start the server
       try {
@@ -718,7 +713,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       }
       
       // Remove from running servers
-      delete this.runningServers[serverId];
+      this.serverProcesses.delete(serverId);
       
       return { success: false, error: error.message || 'Unknown error' };
     }
@@ -753,7 +748,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         this.addServerOutput(serverId, '[INFO] Server stopped');
         
         // Remove from running servers
-        delete this.runningServers[serverId];
+        this.serverProcesses.delete(serverId);
         
         return { success: true };
       } catch (error) {
@@ -775,7 +770,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   
   async sendCommand(serverId, command) {
     try {
-      const serverProcess = this.runningServers[serverId];
+      const serverProcess = this.serverProcesses.get(serverId);
       if (!serverProcess) {
         throw new Error(`Server process with ID ${serverId} not found`);
       }
@@ -801,7 +796,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   },
   
   addServerOutput(serverId, message) {
-    const serverProcess = this.runningServers[serverId];
+    const serverProcess = this.serverProcesses.get(serverId);
     if (serverProcess) {
       serverProcess.output.push(message);
       
@@ -835,7 +830,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       try {
         const output = await invoke('get_server_output', { id: serverId });
         if (output && Array.isArray(output)) {
-          const serverProcess = this.runningServers[serverId];
+          const serverProcess = this.serverProcesses.get(serverId);
           if (serverProcess) {
             // Replace the output with the real server output
             serverProcess.output = output;
@@ -848,7 +843,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         if (error.includes('not found')) {
           clearInterval(this.outputPollingIntervals[serverId]);
           delete this.outputPollingIntervals[serverId];
-          delete this.runningServers[serverId];
+          this.serverProcesses.delete(serverId);
         }
       }
     }, 500);
@@ -957,11 +952,11 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   },
   
   getServerProcess(serverId) {
-    return this.runningServers[serverId];
+    return this.serverProcesses.get(serverId);
   },
   
   isServerRunning(serverId) {
-    return !!this.runningServers[serverId];
+    return !!this.serverProcesses.get(serverId);
   },
   
   getServerStatus(serverId) {
@@ -970,7 +965,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   },
   
   getDownloadProgress(serverId) {
-    return this.downloadProgress[serverId] || { progress: 0, status: 'idle' };
+    return this.downloadProgress.get(serverId) || { progress: 0, status: 'idle' };
   },
   
   cleanupServer(serverId) {
@@ -981,10 +976,10 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     }
     
     // Remove from running servers
-    delete this.runningServers[serverId];
+    this.serverProcesses.delete(serverId);
     
     // Remove from download progress
-    delete this.downloadProgress[serverId];
+    this.downloadProgress.delete(serverId);
     
     // Remove from servers array
     const index = this.servers.findIndex(s => s.id === serverId);
@@ -1093,6 +1088,56 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       }
     } catch (error) {
       console.error('Error loading settings:', error);
+    }
+  },
+  
+  // Project management methods
+  addProject(projectData) {
+    this.projects.push(projectData);
+    this.saveProjects();
+    console.log('Project added:', projectData.name);
+  },
+  
+  removeProject(projectId) {
+    const index = this.projects.findIndex(p => p.id === projectId);
+    if (index !== -1) {
+      this.projects.splice(index, 1);
+      this.saveProjects();
+      console.log('Project removed:', projectId);
+    }
+  },
+  
+  updateProject(projectId, updates) {
+    const project = this.projects.find(p => p.id === projectId);
+    if (project) {
+      Object.assign(project, updates, { lastModified: new Date().toISOString() });
+      this.saveProjects();
+      console.log('Project updated:', project.name);
+    }
+  },
+  
+  getProject(projectId) {
+    return this.projects.find(p => p.id === projectId);
+  },
+  
+  saveProjects() {
+    try {
+      localStorage.setItem('servermint-projects', JSON.stringify(this.projects));
+      console.log('Projects saved successfully');
+    } catch (error) {
+      console.error('Error saving projects:', error);
+    }
+  },
+  
+  loadProjects() {
+    try {
+      const savedProjects = localStorage.getItem('servermint-projects');
+      if (savedProjects) {
+        this.projects = JSON.parse(savedProjects);
+        console.log('Projects loaded successfully:', this.projects.length);
+      }
+    } catch (error) {
+      console.error('Error loading projects:', error);
     }
   },
   
