@@ -260,6 +260,114 @@ async fn get_folder_size(folder_path: String) -> Result<u64, String> {
     }
 }
 
+#[tauri::command]
+async fn rename_file(old_path: String, new_name: String) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+    
+    let old_path = Path::new(&old_path);
+    let parent = old_path.parent().ok_or("Invalid path")?;
+    let new_path = parent.join(&new_name);
+    
+    if !old_path.exists() {
+        return Err(format!("File does not exist: {}", old_path.display()));
+    }
+    
+    if new_path.exists() {
+        return Err(format!("File already exists: {}", new_path.display()));
+    }
+    
+    match fs::rename(old_path, &new_path) {
+        Ok(_) => {
+            println!("Successfully renamed {} to {}", old_path.display(), new_path.display());
+            Ok(())
+        },
+        Err(e) => {
+            let error_msg = format!("Failed to rename file: {}", e);
+            println!("{}", error_msg);
+            Err(error_msg)
+        }
+    }
+}
+
+#[tauri::command]
+async fn move_file(source_path: String, destination_path: String) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+    
+    let source = Path::new(&source_path);
+    let destination = Path::new(&destination_path);
+    
+    if !source.exists() {
+        return Err(format!("Source file does not exist: {}", source.display()));
+    }
+    
+    // Create destination directory if it doesn't exist
+    if let Some(parent) = destination.parent() {
+        if !parent.exists() {
+            if let Err(e) = fs::create_dir_all(parent) {
+                return Err(format!("Failed to create destination directory: {}", e));
+            }
+        }
+    }
+    
+    if destination.exists() {
+        return Err(format!("Destination file already exists: {}", destination.display()));
+    }
+    
+    match fs::rename(source, destination) {
+        Ok(_) => {
+            println!("Successfully moved {} to {}", source.display(), destination.display());
+            Ok(())
+        },
+        Err(e) => {
+            let error_msg = format!("Failed to move file: {}", e);
+            println!("{}", error_msg);
+            Err(error_msg)
+        }
+    }
+}
+
+#[tauri::command]
+async fn delete_file_or_directory(path: String) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+    
+    let path = Path::new(&path);
+    
+    if !path.exists() {
+        return Err(format!("Path does not exist: {}", path.display()));
+    }
+    
+    if path.is_file() {
+        match fs::remove_file(path) {
+            Ok(_) => {
+                println!("Successfully deleted file: {}", path.display());
+                Ok(())
+            },
+            Err(e) => {
+                let error_msg = format!("Failed to delete file: {}", e);
+                println!("{}", error_msg);
+                Err(error_msg)
+            }
+        }
+    } else if path.is_dir() {
+        match fs::remove_dir_all(path) {
+            Ok(_) => {
+                println!("Successfully deleted directory: {}", path.display());
+                Ok(())
+            },
+            Err(e) => {
+                let error_msg = format!("Failed to delete directory: {}", e);
+                println!("{}", error_msg);
+                Err(error_msg)
+            }
+        }
+    } else {
+        Err(format!("Path is neither a file nor directory: {}", path.display()))
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Ensure application directories exist
@@ -351,6 +459,9 @@ pub fn run() {
       // File operations
       get_file_size,
       get_folder_size,
+      rename_file,
+      move_file,
+      delete_file_or_directory,
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
