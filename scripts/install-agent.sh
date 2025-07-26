@@ -56,200 +56,14 @@ mkdir -p /var/lib/servermint/servers
 mkdir -p /etc/servermint
 echo -e "${GREEN}✓ Directories created${NC}"
 
-# Download agent binary
+# Download and install Rust agent
 echo -e "${BLUE}Setting up Servermint agent...${NC}"
 
-# Create a simple agent script
-cat > /opt/servermint/agent.js << 'EOF'
-const http = require('http');
-const https = require('https');
-const os = require('os');
-const fs = require('fs');
-const { execSync } = require('child_process');
-const { createConnection } = require('net');
-
-// Load configuration
-const configPath = process.env.SERVERMINT_CONFIG || '/etc/servermint/config.toml';
-console.log('Loading config from', configPath);
-
-// Parse simple TOML config
-function parseConfig(configContent) {
-  const config = {};
-  let currentSection = '';
-  
-  configContent.split('\n').forEach(line => {
-    line = line.trim();
-    if (!line || line.startsWith('#')) return;
-    
-    // Section header
-    const sectionMatch = line.match(/^\[([^\]]+)\]$/);
-    if (sectionMatch) {
-      currentSection = sectionMatch[1];
-      config[currentSection] = {};
-      return;
-    }
-    
-    // Key-value pair
-    const kvMatch = line.match(/^([^=]+)=(.*)$/);
-    if (kvMatch && currentSection) {
-      const key = kvMatch[1].trim();
-      let value = kvMatch[2].trim();
-      
-      // Remove quotes if present
-      if (value.startsWith('"') && value.endsWith('"')) {
-        value = value.slice(1, -1);
-      }
-      
-      config[currentSection][key] = value;
-    }
-  });
-  
-  return config;
-}
-
-// Load config
-let config;
-try {
-  const configContent = fs.readFileSync(configPath, 'utf8');
-  config = parseConfig(configContent);
-  console.log('Config loaded:', JSON.stringify(config, null, 2));
-} catch (err) {
-  console.error('Failed to load config:', err);
-  process.exit(1);
-}
-
-// Get system info
-function getSystemInfo() {
-  const hostname = os.hostname();
-  const totalMem = os.totalmem();
-  const freeMem = os.freemem();
-  const memUsage = ((totalMem - freeMem) / totalMem) * 100;
-  
-  let diskUsage = 0;
-  try {
-    const stdout = execSync('df -k / | tail -1 | awk \'{print $5}\'');
-    if (stdout) {
-      diskUsage = parseInt(stdout.toString().trim().replace('%', ''));
-    }
-  } catch (e) {
-    console.error('Error getting disk usage:', e);
-  }
-  
-  const cpuUsage = os.loadavg()[0] * 100 / os.cpus().length;
-  
-  return {
-    hostname,
-    cpu: Math.round(cpuUsage),
-    memory: Math.round(memUsage),
-    disk: diskUsage,
-    token: config.agent.token
-  };
-}
-
-// Extract URL components from ws URL
-function parseUrl(wsUrl) {
-  let url = wsUrl;
-  url = url.replace('wss://', 'https://');
-  url = url.replace('ws://', 'http://');
-  
-  const match = url.match(/^(https?):\/\/([^:/]+)(?::(\d+))?(\/.*)?$/);
-  if (!match) {
-    throw new Error(`Invalid URL: ${wsUrl}`);
-  }
-  
-  return {
-    protocol: match[1],
-    host: match[2],
-    port: match[3] ? parseInt(match[3]) : (match[1] === 'https' ? 443 : 80),
-    path: match[4] || '/'
-  };
-}
-
-// Report status using HTTP
-function reportStatus() {
-  const systemInfo = getSystemInfo();
-  console.log('System info:', systemInfo);
-  
-  try {
-    // Parse the ws URL to get components for HTTP
-    const wsUrl = config.agent.ws_url;
-    const urlParts = parseUrl(wsUrl);
-    const statusEndpoint = urlParts.path.replace('/ws', '/api/node-status');
-    
-    console.log(`Reporting to ${urlParts.protocol}://${urlParts.host}:${urlParts.port}${statusEndpoint}`);
-    
-    const data = JSON.stringify({
-      node_status: systemInfo,
-      token: config.agent.token
-    });
-    
-    const options = {
-      hostname: urlParts.host,
-      port: urlParts.port,
-      path: statusEndpoint,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': data.length
-      }
-    };
-    
-    const req = (urlParts.protocol === 'https' ? https : http).request(options, (res) => {
-      console.log(`STATUS: ${res.statusCode}`);
-      let responseData = '';
-      
-      res.on('data', (chunk) => {
-        responseData += chunk;
-      });
-      
-      res.on('end', () => {
-        console.log('Response:', responseData);
-      });
-    });
-    
-    req.on('error', (e) => {
-      console.error(`Problem with request: ${e.message}`);
-    });
-    
-    req.write(data);
-    req.end();
-  } catch (err) {
-    console.error('Error reporting status:', err);
-  }
-}
-
-// Simple connectivity test
-function testConnectivity() {
-  const wsUrl = config.agent.ws_url;
-  const urlParts = parseUrl(wsUrl);
-  
-  console.log(`Testing TCP connectivity to ${urlParts.host}:${urlParts.port}...`);
-  
-  const socket = createConnection({ 
-    host: urlParts.host, 
-    port: urlParts.port 
-  });
-  
-  socket.on('connect', () => {
-    console.log('TCP connection successful!');
-    socket.end();
-  });
-  
-  socket.on('error', (err) => {
-    console.error('TCP connection failed:', err.message);
-  });
-}
-
-// Start the agent
-console.log('Starting Servermint agent...');
-testConnectivity();
-reportStatus();
-
-// Report status every 30 seconds
-setInterval(reportStatus, 30000);
-
-console.log('Agent running');
-EOF
+# Download latest agent binary
+echo -e "${BLUE}Downloading agent binary...${NC}"
+AGENT_URL="https://releases.servermint.app/latest/servermint-agent-linux-x64"
+curl -sSL -o /opt/servermint/servermint-agent "$AGENT_URL"
+chmod +x /opt/servermint/servermint-agent
 
 # Create a run script
 cat > /opt/servermint/run-agent.sh << 'EOF'
@@ -277,20 +91,11 @@ fi
 
 # Run the agent
 echo "$(date): Starting agent..." >> agent.log
-exec node agent.js >> agent.log 2>&1
+exec ./servermint-agent >> agent.log 2>&1
 EOF
 
 chmod +x /opt/servermint/run-agent.sh
 
-# Install Node.js if not already installed
-if ! command -v node &> /dev/null; then
-    echo -e "${YELLOW}Node.js is not installed. Installing...${NC}"
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-    apt-get update
-    apt-get install -y nodejs
-fi
-
-# No npm dependencies needed - skip npm installation
 echo -e "${GREEN}✓ Agent setup complete${NC}"
 
 # Prompt for pairing token
@@ -336,6 +141,7 @@ Restart=always
 RestartSec=10
 Environment="SERVERMINT_CONFIG=/etc/servermint/config.toml"
 Environment="SERVERMINT_SERVERS_DIR=/var/lib/servermint/servers"
+Environment="RUST_LOG=info"
 
 [Install]
 WantedBy=multi-user.target
@@ -367,7 +173,7 @@ else
     journalctl -u servermint-agent -n 20 --no-pager
     
     echo -e "${YELLOW}Attempting to start the agent manually for debugging...${NC}"
-    cd /opt/servermint && NODE_PATH=/opt/servermint/node_modules:/usr/local/lib/node_modules node agent.js
+    cd /opt/servermint && ./servermint-agent
 fi
 
 # Create firewall rules

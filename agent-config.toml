@@ -1,0 +1,7 @@
+[agent]
+name = "Test Node"
+token = "sm-ca9ee53c-1ca2-4255-a4c8-1553a6fef55c"
+ws_url = "wss://relay.servermint.app/ws"
+
+[servers]
+directory = "C:/servermint/servers" 

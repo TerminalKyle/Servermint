@@ -168,35 +168,35 @@
                     <div class="d-flex align-center mb-2">
                       <span class="text-caption text-medium-emphasis mr-2" style="width: 80px">CPU:</span>
                       <v-progress-linear
-                        :model-value="70"
+                        :model-value="node.metrics?.cpu || 0"
                         color="primary"
                         height="8"
                         rounded
                         class="flex-grow-1"
                       ></v-progress-linear>
-                      <span class="text-caption ml-2">70%</span>
+                      <span class="text-caption ml-2">{{ Math.round(node.metrics?.cpu || 0) }}%</span>
                     </div>
                     <div class="d-flex align-center mb-2">
                       <span class="text-caption text-medium-emphasis mr-2" style="width: 80px">Memory:</span>
                       <v-progress-linear
-                        :model-value="45"
+                        :model-value="node.metrics?.memory || 0"
                         color="success"
                         height="8"
                         rounded
                         class="flex-grow-1"
                       ></v-progress-linear>
-                      <span class="text-caption ml-2">45%</span>
+                      <span class="text-caption ml-2">{{ Math.round(node.metrics?.memory || 0) }}%</span>
                     </div>
                     <div class="d-flex align-center">
                       <span class="text-caption text-medium-emphasis mr-2" style="width: 80px">Disk:</span>
                       <v-progress-linear
-                        :model-value="30"
+                        :model-value="node.metrics?.disk || 0"
                         color="info"
                         height="8"
                         rounded
                         class="flex-grow-1"
                       ></v-progress-linear>
-                      <span class="text-caption ml-2">30%</span>
+                      <span class="text-caption ml-2">{{ Math.round(node.metrics?.disk || 0) }}%</span>
                     </div>
                   </v-col>
                 </v-row>
@@ -372,6 +372,7 @@ export default {
     return {
       isLoading: true,
       nodes: [],
+      updateInterval: null,
       
       // Add Node Dialog
       showAddNodeDialog: false,
@@ -405,6 +406,14 @@ export default {
   },
   async mounted() {
     await this.loadNodes();
+    // Start periodic updates
+    this.updateInterval = setInterval(this.loadNodes, 30000);
+  },
+  beforeUnmount() {
+    // Clear update interval
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+    }
   },
   methods: {
     async loadNodes() {
@@ -423,21 +432,15 @@ export default {
     getNodeStatusColor(status) {
       switch (status) {
         case 'Online': return 'success';
-        case 'Offline': return 'grey';
+        case 'Offline': return 'grey-darken-1';
         case 'Error': return 'error';
         case 'Connecting': return 'warning';
         default: return 'grey';
       }
     },
     
-    getNodeIconColor(status) {
-      switch (status) {
-        case 'Online': return 'white';
-        case 'Offline': return 'white';
-        case 'Error': return 'white';
-        case 'Connecting': return 'white';
-        default: return 'white';
-      }
+    getNodeIconColor() {
+      return 'white'; // Keep icon color consistent
     },
     
     formatNodeStatus(status) {
@@ -527,7 +530,23 @@ export default {
     async generateToken() {
       this.generatingToken = true;
       try {
-        this.pairingToken = await invoke('ws_generate_pairing_token');
+        // Call relay server directly
+        const response = await fetch('https://relay.servermint.app/api/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId: 'current-user' // TODO: Get from auth
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to generate token: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        this.pairingToken = data.token;
         console.log('Generated token:', this.pairingToken);
       } catch (error) {
         console.error('Error generating token:', error);
@@ -555,10 +574,60 @@ export default {
       this.checkingConnection = true;
       try {
         console.log(`Checking connection for token: ${this.pairingToken}`);
-        // We'll force this to succeed for now - the actual connection check will happen
-        // when the agent connects to the relay server
-        console.log('Simulating successful connection');
-        this.addNodeStep = '3';
+        
+        // Poll for node connection status
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds timeout
+        
+        while (attempts < maxAttempts) {
+          // Check connection via WebSocket
+          const ws = new WebSocket('wss://relay.servermint.app/ws');
+          
+          const connected = await new Promise((resolve) => {
+            ws.onopen = () => {
+              // Send auth message
+              ws.send(JSON.stringify({
+                type: 'Authenticate',
+                data: {
+                  userId: 'current-user',
+                  token: this.pairingToken
+                }
+              }));
+            };
+            
+            ws.onmessage = (event) => {
+              const data = JSON.parse(event.data);
+              if (data.type === 'NodeList') {
+                resolve(true);
+                ws.close();
+              } else if (data.type === 'Error') {
+                resolve(false);
+                ws.close();
+              }
+            };
+            
+            ws.onerror = () => {
+              resolve(false);
+              ws.close();
+            };
+            
+            // Timeout after 1 second
+            setTimeout(() => {
+              resolve(false);
+              ws.close();
+            }, 1000);
+          });
+          
+          if (connected) {
+            this.addNodeStep = '3';
+            return;
+          }
+          
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        throw new Error('Connection timeout - please check if the agent is running and try again');
       } catch (error) {
         console.error('Error checking connection:', error);
         window.showError('Connection Error', error.toString());

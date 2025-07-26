@@ -1,7 +1,6 @@
 mod server;
 mod setup;
 mod node;
-mod websocket;
 
 use std::sync::{Arc, Mutex};
 use server::ServerManager;
@@ -468,11 +467,8 @@ async fn check_for_updates() -> Result<serde_json::Value, String> {
 #[tauri::command]
 async fn restart_application(app_handle: tauri::AppHandle) -> Result<(), String> {
     println!("Restarting application...");
-    
-    // Use Tauri's restart functionality
     app_handle.restart();
-    
-    Ok(())
+    Ok(()) // This is fine, the restart will happen before this returns
 }
 
 #[tauri::command]
@@ -571,39 +567,10 @@ pub fn run() {
 
   let server_manager = Arc::new(Mutex::new(ServerManager::new()));
   let node_manager = Arc::new(Mutex::new(node::NodeManager::new(server_manager.clone())));
-  
-  // Create WebSocket server
-  let websocket_server = Arc::new(websocket::WebSocketServer::new());
-  let ws_server_clone = websocket_server.clone();
-  
-  // Start WebSocket server in a background task with a different port
-  tauri::async_runtime::spawn(async move {
-    // Try different ports if the default one is in use
-    let ports = [9955, 9956, 9957, 9958, 9959];
-    let mut success = false;
-    
-    for port in ports {
-      match ws_server_clone.start(port).await {
-        Ok(_) => {
-          println!("WebSocket server started on port {}", port);
-          success = true;
-          break;
-        },
-        Err(e) => {
-          eprintln!("Failed to start WebSocket server on port {}: {}", port, e);
-        }
-      }
-    }
-    
-    if !success {
-      eprintln!("Failed to start WebSocket server on any port");
-    }
-  });
 
   tauri::Builder::default()
     .manage(server_manager)
     .manage(node_manager)
-    .manage(websocket_server)
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_shell::init())
@@ -634,10 +601,8 @@ pub fn run() {
       node::generate_pairing_token,
       node::check_node_connected,
       node::get_node_info_by_token,
-      
-      // WebSocket commands
-      websocket::ws_generate_pairing_token,
-      websocket::ws_check_node_connected,
+      node::update_node_metrics,
+      node::update_node_status,
       
       // Utility commands
       open_folder,
@@ -672,8 +637,6 @@ pub fn run() {
           .level(log::LevelFilter::Info)
           .build(),
       )?;
-
-
       
       Ok(())
     })

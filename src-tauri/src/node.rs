@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 use tauri::State;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use log::info;
+use log::{info, error};
 
 use crate::server::ServerManager;
 
@@ -41,13 +41,21 @@ pub struct Node {
     pub config: NodeConfig,
     pub last_seen: Option<DateTime<Utc>>,
     pub servers: Vec<String>, // Server IDs
+    pub metrics: Option<NodeMetrics>, // Add metrics field
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeMetrics {
+    pub cpu: f32,
+    pub memory: f32,
+    pub disk: f32,
 }
 
 #[derive(Debug)]
 pub struct NodeManager {
     nodes: HashMap<String, Node>,
     server_manager: Arc<Mutex<ServerManager>>,
-    active_tokens: HashMap<String, (String, DateTime<Utc>)>, // token -> (node_id, expiry)
+    pub active_tokens: HashMap<String, (String, DateTime<Utc>)>, // token -> (node_id, expiry)
 }
 
 impl NodeManager {
@@ -69,6 +77,7 @@ impl NodeManager {
             },
             last_seen: Some(Utc::now()),
             servers: Vec::new(),
+            metrics: None,
         };
         nodes.insert(local_node.id.clone(), local_node);
         
@@ -134,7 +143,28 @@ impl NodeManager {
         token
     }
     
+    pub fn update_node_metrics(&mut self, node_id: &str, metrics: NodeMetrics) -> Result<(), String> {
+        if let Some(node) = self.nodes.get_mut(node_id) {
+            node.metrics = Some(metrics);
+            node.last_seen = Some(Utc::now());
+            node.status = NodeStatus::Online;
+            Ok(())
+        } else {
+            Err(format!("Node with ID {} not found", node_id))
+        }
+    }
+
+    pub fn update_node_status(&mut self, node_id: &str, status: NodeStatus) -> Result<(), String> {
+        if let Some(node) = self.nodes.get_mut(node_id) {
+            node.status = status;
+            Ok(())
+        } else {
+            Err(format!("Node with ID {} not found", node_id))
+        }
+    }
+
     pub fn validate_token(&mut self, token: &str) -> Option<String> {
+        // Check if token exists in active_tokens
         if let Some((node_id, expiry)) = self.active_tokens.get(token) {
             if expiry > &Utc::now() {
                 if node_id == "pending" {
@@ -142,12 +172,75 @@ impl NodeManager {
                     let node_id = format!("node-{}", Uuid::new_v4().to_string());
                     // Update token with node ID
                     self.active_tokens.insert(token.to_string(), (node_id.clone(), *expiry));
+                    
+                    // Create a new node
+                    let node = Node {
+                        id: node_id.clone(),
+                        name: format!("VPS Node {}", &node_id[5..11]),
+                        node_type: NodeType::Remote,
+                        status: NodeStatus::Connecting,
+                        config: NodeConfig {
+                            name: format!("VPS Node {}", &node_id[5..11]),
+                            hostname: None,
+                            port: None,
+                            ssh_key_path: None,
+                            username: None,
+                            api_token: Some(token.to_string()),
+                        },
+                        last_seen: Some(Utc::now()),
+                        servers: Vec::new(),
+                        metrics: None,
+                    };
+                    
+                    // Add the node
+                    if let Err(e) = self.add_node(node) {
+                        error!("Failed to create node for token {}: {}", token, e);
+                        return None;
+                    }
+                    
                     return Some(node_id);
                 } else {
                     return Some(node_id.clone());
                 }
             }
         }
+        
+        // If token not found in active_tokens, check if it's a pre-generated token
+        if token.starts_with("sm-") {
+            // Generate a new node ID
+            let node_id = format!("node-{}", Uuid::new_v4().to_string());
+            // Add token to active_tokens with 10 minute expiry
+            let expiry = Utc::now() + chrono::Duration::minutes(10);
+            self.active_tokens.insert(token.to_string(), (node_id.clone(), expiry));
+            
+            // Create a new node
+            let node = Node {
+                id: node_id.clone(),
+                name: format!("VPS Node {}", &node_id[5..11]),
+                node_type: NodeType::Remote,
+                status: NodeStatus::Connecting,
+                config: NodeConfig {
+                    name: format!("VPS Node {}", &node_id[5..11]),
+                    hostname: None,
+                    port: None,
+                    ssh_key_path: None,
+                    username: None,
+                    api_token: Some(token.to_string()),
+                },
+                last_seen: Some(Utc::now()),
+                servers: Vec::new(),
+                metrics: None,
+            };
+            
+            // Add the node
+            if let Err(e) = self.add_node(node) {
+                error!("Failed to create node for token {}: {}", token, e);
+                return None;
+            }
+            
+            return Some(node_id);
+        }
+        
         None
     }
     
@@ -239,4 +332,24 @@ pub fn get_node_info_by_token(state: NodeManagerState, token: String) -> Result<
         // Token is invalid or not used yet
         Err(format!("Invalid or unused token: {}", token))
     }
+} 
+
+#[tauri::command]
+pub fn update_node_metrics(
+    state: NodeManagerState,
+    node_id: String,
+    metrics: NodeMetrics,
+) -> Result<(), String> {
+    let mut node_manager = state.lock().map_err(|e| format!("Failed to lock node manager: {}", e))?;
+    node_manager.update_node_metrics(&node_id, metrics)
+}
+
+#[tauri::command]
+pub fn update_node_status(
+    state: NodeManagerState,
+    node_id: String,
+    status: NodeStatus,
+) -> Result<(), String> {
+    let mut node_manager = state.lock().map_err(|e| format!("Failed to lock node manager: {}", e))?;
+    node_manager.update_node_status(&node_id, status)
 } 
