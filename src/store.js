@@ -1230,8 +1230,8 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     }, 500);
   },
   
-  async getServerFiles(serverId, path = '') {
-    console.log(`getServerFiles called with serverId: ${serverId}`);
+  async getServerFiles(serverId, path = '', recursive = false) {
+    console.log(`getServerFiles called with serverId: ${serverId}, path: ${path}, recursive: ${recursive}`);
     console.log(`Current servers array:`, this.servers.map(s => ({ id: s.id, name: s.name })));
     
     try {
@@ -1243,13 +1243,38 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       const fullPath = path ? `${server.path}/${path}` : server.path;
       
       // Read directory contents
-      const files = await tauriAPI.readDir(fullPath);
+      const entries = await tauriAPI.readDir(fullPath);
+      let files = [];
+      
+      for (const entry of entries) {
+        if (entry.isDirectory && recursive) {
+          // Get relative path from server root
+          const relativePath = path ? `${path}/${entry.name}` : entry.name;
+          
+          // Recursively get files from subdirectory
+          const subDirResult = await this.getServerFiles(serverId, relativePath, true);
+          if (subDirResult.success) {
+            // Add subdirectory files with updated paths
+            files = files.concat(subDirResult.files.map(file => ({
+              ...file,
+              // Update path to be relative to the original request
+              name: `${entry.name}/${file.name}`
+            })));
+          }
+        }
+        files.push(entry);
+      }
       
       return { success: true, files };
     } catch (error) {
       console.error('Error getting server files:', error);
       return { success: false, error, files: [] };
     }
+  },
+
+  // New function specifically for recursive file listing
+  async getServerFilesRecursive(serverId, path = '') {
+    return this.getServerFiles(serverId, path, true);
   },
   
   async readServerFile(serverId, filePath) {
@@ -1531,8 +1556,8 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   async upload_file_sftp(config, local_path, remote_path) {
     try {
       console.log(`Uploading file to SFTP: ${local_path} -> ${remote_path}`);
-      const result = await this.tauriAPI.upload_file_sftp(config, local_path, remote_path);
-      return result;
+      const result = await invoke('upload_file_sftp', { config, localPath: local_path, remotePath: remote_path });
+      return { success: result === true };
     } catch (error) {
       console.error('SFTP upload error:', error);
       return { success: false, error: error.toString() };

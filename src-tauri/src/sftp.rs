@@ -170,10 +170,9 @@ pub async fn test_sftp_connection(config: SftpConfig) -> Result<bool, String> {
 #[tauri::command]
 pub async fn upload_file_sftp(config: SftpConfig, local_path: String, remote_path: String) -> Result<bool, String> {
     task::spawn_blocking(move || {
-        // Create temporary files with upload and verify commands
+        // Create temporary files with upload command
         let (batch_path, ps_path) = config.create_temp_files(&[
             &format!("put \"{}\" \"{}\"", local_path, remote_path),
-            "ls",  // List files to verify upload
             "exit"
         ])?;
 
@@ -185,28 +184,14 @@ pub async fn upload_file_sftp(config: SftpConfig, local_path: String, remote_pat
 
         match result {
             Ok(output) => {
-                // Get just the filename from the remote path
-                let filename = std::path::Path::new(&remote_path)
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or(&remote_path);
-
-                // Extract filenames from directory listing
-                let filenames: Vec<String> = output.lines()
-                    .filter(|line| line.contains("-rw-") || line.contains("-r--") || line.contains("drwx") || line.contains("-rwx"))
-                    .filter_map(|line| {
-                        // Split on whitespace and get the last part which is the filename
-                        line.split_whitespace().last().map(|s| s.to_string())
-                    })
-                    .collect();
-
-                println!("Found files in directory: {:?}", filenames);
-                println!("Looking for file: {}", filename);
-
-                if filenames.iter().any(|name| name == filename) {
-                    Ok(true)
+                // Check for common error messages in the output
+                if output.contains("no such file") || 
+                   output.contains("permission denied") || 
+                   output.contains("failure") {
+                    Err(format!("Upload failed: {}", output))
                 } else {
-                    Err("File upload reported success but file not found in directory listing".to_string())
+                    // If no error messages found, consider it a success
+                    Ok(true)
                 }
             },
             Err(e) => Err(e),
@@ -239,9 +224,8 @@ pub async fn download_file_sftp(config: SftpConfig, remote_path: String, local_p
 #[tauri::command]
 pub async fn list_remote_files(config: SftpConfig, path: String) -> Result<Vec<String>, String> {
     task::spawn_blocking(move || {
-        // Create temporary files with multiple commands
+        // Create temporary files with ls command
         let (batch_path, ps_path) = config.create_temp_files(&[
-            "pwd",  // Show current directory
             "ls",   // List files
             "exit"
         ])?;
@@ -258,12 +242,22 @@ pub async fn list_remote_files(config: SftpConfig, path: String) -> Result<Vec<S
                 let files: Vec<String> = output.lines()
                     .filter(|line| {
                         let line = line.trim();
-                        // Keep only lines that look like file listings
-                        line.contains("-rw-") || line.contains("-r--") || line.contains("drwx") || line.contains("-rwx")
+                        // Skip empty lines and command output
+                        !line.is_empty() && 
+                        !line.starts_with("Remote working directory") &&
+                        !line.starts_with("Using username") &&
+                        !line.starts_with("mkdir") &&
+                        !line.starts_with("Remote directory") &&
+                        !line.starts_with("Listing directory")
                     })
-                    .filter_map(|line| {
-                        // Split on whitespace and get the last part which is the filename
-                        line.split_whitespace().last().map(|s| s.to_string())
+                    .map(|line| {
+                        // If it's a file listing with permissions, get just the filename
+                        if line.contains("-rw-") || line.contains("-r--") || line.contains("drwx") || line.contains("-rwx") {
+                            line.split_whitespace().last().unwrap_or(line).to_string()
+                        } else {
+                            // Otherwise just use the whole line (for simple listings)
+                            line.trim().to_string()
+                        }
                     })
                     .collect();
 

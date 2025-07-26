@@ -2803,16 +2803,18 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
 
           if (fileObj.isDirectory) {
             // Get all files in directory recursively
-            const dirFiles = await this.store.getServerFiles(this.serverId, `${this.currentPath}/${selectedFile}`);
+            const dirFiles = await this.store.getServerFilesRecursive(this.serverId, `${this.currentPath}/${selectedFile}`);
             if (dirFiles.success) {
               for (const file of dirFiles.files) {
                 if (!file.isDirectory) {
                   totalFiles++;
+                  // Construct paths preserving directory structure
+                  const relativePath = file.name; // This now includes subdirectory structure
                   filesToUpload.push({
-                    localPath: `${this.server.path}/${this.currentPath}/${selectedFile}/${file.name}`.replace(/\/+/g, '/'),
-                    remotePath: `${this.sftpConfig.remotePath}/${selectedFile}/${file.name}`.replace(/\/+/g, '/'),
+                    localPath: `${this.server.path}/${this.currentPath}/${selectedFile}/${relativePath}`.replace(/\/+/g, '/'),
+                    remotePath: `${this.sftpConfig.remotePath}/${selectedFile}/${relativePath}`.replace(/\/+/g, '/'),
                     size: file.size,
-                    name: `${selectedFile}/${file.name}`
+                    name: `${selectedFile}/${relativePath}`
                   });
                 }
               }
