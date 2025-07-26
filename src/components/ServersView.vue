@@ -61,6 +61,24 @@
       </v-menu>
       
       <v-spacer></v-spacer>
+
+      <!-- View toggle -->
+      <v-btn-toggle
+        v-model="viewMode"
+        color="primary"
+        density="comfortable"
+        class="view-toggle mr-3"
+        rounded="lg"
+      >
+        <v-btn value="grid" variant="text">
+          <v-icon>mdi-grid</v-icon>
+          <v-tooltip activator="parent" location="bottom">Grid View</v-tooltip>
+        </v-btn>
+        <v-btn value="list" variant="text">
+          <v-icon>mdi-format-list-bulleted</v-icon>
+          <v-tooltip activator="parent" location="bottom">List View</v-tooltip>
+        </v-btn>
+      </v-btn-toggle>
       
       <v-btn
         icon
@@ -84,7 +102,7 @@
     </div>
 
     <!-- Server list -->
-    <div class="server-list">
+    <div class="server-list" :class="viewMode">
       <v-row v-if="filteredServers.length === 0">
         <v-col cols="12" class="text-center">
           <v-card class="pa-6" rounded="lg" elevation="3">
@@ -98,9 +116,17 @@
       </v-row>
       
       <v-row v-else>
-        <v-col v-for="(server, index) in filteredServers" :key="index" cols="12">
+        <v-col 
+          v-for="(server, index) in filteredServers" 
+          :key="index" 
+          :cols="viewMode === 'grid' ? 12 : 12"
+          :sm="viewMode === 'grid' ? 6 : 12"
+          :md="viewMode === 'grid' ? 4 : 12"
+          :lg="viewMode === 'grid' ? 3 : 12"
+        >
           <div 
             class="server-card" 
+            :class="{ 'list-view': viewMode === 'list' }"
             @click="openServer(server)"
             @contextmenu.prevent="showContextMenu($event, server)"
           >
@@ -246,6 +272,7 @@ export default {
     return {
       activeTab: 'all',
       searchQuery: '',
+      viewMode: 'grid', // Add this line
       contextMenu: {
               show: false,
       x: 0,
@@ -739,5 +766,41 @@ export default {
   padding: 4px 0;
   display: flex;
   align-items: center;
+}
+
+/* View toggle styles */
+.view-toggle {
+  background-color: rgba(30, 30, 30, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.view-toggle :deep(.v-btn) {
+  color: white;
+  opacity: 0.7;
+}
+
+.view-toggle :deep(.v-btn--active) {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Server card styles for different views */
+.server-list.list .server-card {
+  margin-bottom: 8px;
+}
+
+.server-card.list-view {
+  padding: 8px 16px;
+}
+
+.server-card.list-view:hover {
+  transform: translateX(4px);
+}
+
+/* Responsive grid */
+@media (min-width: 960px) {
+  .server-list.grid .server-card {
+    height: 100%;
+  }
 }
 </style> 
