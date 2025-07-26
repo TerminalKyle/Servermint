@@ -191,12 +191,19 @@ pub async fn upload_file_sftp(config: SftpConfig, local_path: String, remote_pat
                     .and_then(|n| n.to_str())
                     .unwrap_or(&remote_path);
 
-                // Check if the file appears in the directory listing
-                let found = output.lines()
+                // Extract filenames from directory listing
+                let filenames: Vec<String> = output.lines()
                     .filter(|line| line.contains("-rw-") || line.contains("-r--") || line.contains("drwx") || line.contains("-rwx"))
-                    .any(|line| line.contains(filename));
+                    .filter_map(|line| {
+                        // Split on whitespace and get the last part which is the filename
+                        line.split_whitespace().last().map(|s| s.to_string())
+                    })
+                    .collect();
 
-                if found {
+                println!("Found files in directory: {:?}", filenames);
+                println!("Looking for file: {}", filename);
+
+                if filenames.iter().any(|name| name == filename) {
                     Ok(true)
                 } else {
                     Err("File upload reported success but file not found in directory listing".to_string())
@@ -254,7 +261,10 @@ pub async fn list_remote_files(config: SftpConfig, path: String) -> Result<Vec<S
                         // Keep only lines that look like file listings
                         line.contains("-rw-") || line.contains("-r--") || line.contains("drwx") || line.contains("-rwx")
                     })
-                    .map(|line| line.trim().to_string())
+                    .filter_map(|line| {
+                        // Split on whitespace and get the last part which is the filename
+                        line.split_whitespace().last().map(|s| s.to_string())
+                    })
                     .collect();
 
                 Ok(files)

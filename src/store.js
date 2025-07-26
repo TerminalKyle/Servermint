@@ -590,21 +590,6 @@ eula=true`;
       if (success) {
         console.log('Upload reported success, verifying file exists...');
         try {
-          // Try running ls directly
-          const verifyResult = await invoke('run_sftp_command', {
-            config: {
-              ...config,
-              remote_path: '/'
-            },
-            command: 'ls -la'
-          });
-          console.log('Verify result:', verifyResult);
-        } catch (e) {
-          console.warn('Could not verify upload with ls:', e);
-        }
-
-        // Also try list_remote_files
-        try {
           const afterFiles = await invoke('list_remote_files', {
             config: {
               ...config,
@@ -615,14 +600,17 @@ eula=true`;
           });
           console.log('Files after upload:', afterFiles);
 
+          // Extract just the filenames from the listing
+          const filenames = afterFiles.map(f => f.split(/\s+/).pop());
+          console.log('Found filenames:', filenames);
+
           // Check if file exists in the list
-          const fileExists = Array.isArray(afterFiles) && afterFiles.some(f => f.name === fileName);
-          if (!fileExists) {
+          if (!filenames.includes(fileName)) {
             console.error('File not found after upload');
             return { success: false, error: 'File upload reported success but file not found' };
           }
         } catch (e) {
-          console.warn('Could not verify upload with list_remote_files:', e);
+          console.warn('Could not verify upload:', e);
         }
       }
 
@@ -1514,7 +1502,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       console.log(`Successfully deleted project folder: ${folderPath}`);
     } catch (error) {
       console.error(`Error deleting project folder: ${error}`);
-      // Don't throw error - project removal should still succeed even if folder deletion fails
     }
   },
   
@@ -1530,6 +1517,17 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     }
   },
   
+  async run_sftp_command(config, command) {
+    try {
+      console.log(`Running SFTP command: ${command}`);
+      const result = await invoke('run_sftp_command', { config, command });
+      return { success: true, output: result };
+    } catch (error) {
+      console.error('SFTP command error:', error);
+      return { success: false, error: error.toString() };
+    }
+  },
+
   async upload_file_sftp(config, local_path, remote_path) {
     try {
       console.log(`Uploading file to SFTP: ${local_path} -> ${remote_path}`);
@@ -1567,52 +1565,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         path: cleanPath
       });
 
-      // Try running ls -la directly first
-      try {
-        console.log('Running ls -la command...');
-        const lsResult = await invoke('run_sftp_command', {
-          config: {
-            host: cleanHost,
-            port: parseInt(config.port),
-            username: config.username,
-            password: config.password,
-            remote_path: '/'
-          },
-          command: 'ls -la'
-        });
-        console.log('ls -la result:', lsResult);
-
-        if (lsResult && typeof lsResult === 'string') {
-          // Parse ls -la output
-          const files = lsResult.split('\n')
-            .filter(line => line.trim() && !line.endsWith(' .') && !line.endsWith(' ..'))
-            .map(line => {
-              const parts = line.trim().split(/\s+/);
-              if (parts.length >= 9) {
-                const [perms, , , , size, month, day, time, ...nameParts] = parts;
-                const name = nameParts.join(' ');
-                return {
-                  name,
-                  size: parseInt(size, 10),
-                  isDirectory: perms.startsWith('d'),
-                  modified: new Date(`${month} ${day} 2023 ${time}`),
-                  permissions: perms
-                };
-              }
-              return null;
-            })
-            .filter(Boolean);
-
-          if (files.length > 0) {
-            console.log('Parsed files from ls:', files);
-            return files;
-          }
-        }
-      } catch (lsError) {
-        console.warn('ls -la command failed:', lsError);
-      }
-
-      // Fallback to list_remote_files
+      // Use list_remote_files
       console.log('Falling back to list_remote_files...');
       let result = await invoke('list_remote_files', { 
         config: {

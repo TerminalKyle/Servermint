@@ -2779,62 +2779,114 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
           this.store.showToast('No files selected for export', 'warning');
           return;
         }
-        
-        // Start transfer progress
-        this.startTransferProgress('export', this.selectedExportFiles.length);
-        
-        // Get the first selected file
-        const selectedFile = this.selectedExportFiles[0];
-        if (!selectedFile) {
-          throw new Error('No file selected for export');
-        }
-
-        // Get the file object from the files array
-        const fileObj = this.files.find(f => f.name === selectedFile);
-        if (!fileObj) {
-          throw new Error(`File ${selectedFile} not found in current directory`);
-        }
 
         // Clean up the hostname by removing any protocol prefix
         const cleanHost = this.sftpConfig.host.replace(/^(sftp|ftp|ssh):\/\//, '');
 
-        // Construct the local and remote paths
-        const localPath = `${this.server.path}/${this.currentPath}/${selectedFile}`.replace(/\/+/g, '/');
-        const remotePath = `${this.sftpConfig.remotePath || '/'}/${selectedFile}`.replace(/\/+/g, '/');
-
-        console.log('Uploading file:', {
+        // Create base config
+        const config = {
           host: cleanHost,
           port: parseInt(this.sftpConfig.port) || 22,
           username: this.sftpConfig.username,
-          localPath,
-          remotePath,
-          fileSize: fileObj.size,
-          currentPath: this.currentPath
-        });
+          password: this.sftpConfig.password,
+          remote_path: this.sftpConfig.remotePath || '/'
+        };
 
-        // Perform export
-        const result = await this.store.upload_file_sftp(
-          {
-            host: cleanHost,
-            port: parseInt(this.sftpConfig.port) || 22,
-            username: this.sftpConfig.username,
-            password: this.sftpConfig.password,
-            remote_path: remotePath  // This should be the full remote path including filename
-          },
-          localPath,  // Local file to upload
-          remotePath  // Where to put it on the remote server
-        );
-        
-        if (result.success) {
-          this.store.showToast(`Successfully uploaded ${selectedFile} to ${remotePath}`, 'success');
-          this.addTransferHistory('export', 1, 'completed');
-          
-          // Refresh remote files list
-          await this.loadRemoteFiles();
-        } else {
-          this.store.showToast(`Export failed: ${result.error}`, 'error');
-          this.addTransferHistory('export', 0, 'failed');
+        // Count total files including files in folders
+        let totalFiles = 0;
+        const filesToUpload = [];
+
+        // Gather all files to upload
+        for (const selectedFile of this.selectedExportFiles) {
+          const fileObj = this.files.find(f => f.name === selectedFile);
+          if (!fileObj) continue;
+
+          if (fileObj.isDirectory) {
+            // Get all files in directory recursively
+            const dirFiles = await this.store.getServerFiles(this.serverId, `${this.currentPath}/${selectedFile}`);
+            if (dirFiles.success) {
+              for (const file of dirFiles.files) {
+                if (!file.isDirectory) {
+                  totalFiles++;
+                  filesToUpload.push({
+                    localPath: `${this.server.path}/${this.currentPath}/${selectedFile}/${file.name}`.replace(/\/+/g, '/'),
+                    remotePath: `${this.sftpConfig.remotePath}/${selectedFile}/${file.name}`.replace(/\/+/g, '/'),
+                    size: file.size,
+                    name: `${selectedFile}/${file.name}`
+                  });
+                }
+              }
+            }
+          } else {
+            totalFiles++;
+            filesToUpload.push({
+              localPath: `${this.server.path}/${this.currentPath}/${selectedFile}`.replace(/\/+/g, '/'),
+              remotePath: `${this.sftpConfig.remotePath}/${selectedFile}`.replace(/\/+/g, '/'),
+              size: fileObj.size,
+              name: selectedFile
+            });
+          }
         }
+
+        // Start transfer progress
+        this.startTransferProgress('export', totalFiles);
+
+        // Upload each file
+        let successCount = 0;
+        let failedCount = 0;
+
+        for (const file of filesToUpload) {
+          try {
+            console.log('Uploading file:', {
+              ...file,
+              config: { ...config, password: '***' }
+            });
+
+            // Update progress
+            this.transferProgress.currentFile = file.name;
+            this.transferProgress.bytesTransferred += file.size || 0;
+            this.transferProgress.percentage = (this.transferProgress.filesCompleted / totalFiles) * 100;
+
+            // Create remote directory if needed
+            const remoteDir = file.remotePath.split('/').slice(0, -1).join('/');
+            if (remoteDir) {
+              await this.store.run_sftp_command(config, `mkdir -p "${remoteDir}"`);
+            }
+
+            // Perform upload
+            const result = await this.store.upload_file_sftp(
+              { ...config, remote_path: remoteDir },
+              file.localPath,
+              file.remotePath
+            );
+
+            if (result.success) {
+              successCount++;
+              this.transferProgress.filesCompleted++;
+            } else {
+              failedCount++;
+              console.error(`Failed to upload ${file.name}:`, result.error);
+            }
+          } catch (error) {
+            failedCount++;
+            console.error(`Error uploading ${file.name}:`, error);
+          }
+
+          // Update progress
+          this.transferProgress.percentage = (this.transferProgress.filesCompleted / totalFiles) * 100;
+        }
+
+        // Show final status
+        if (failedCount === 0) {
+          this.store.showToast(`Successfully uploaded ${successCount} files`, 'success');
+          this.addTransferHistory('export', successCount, 'completed');
+        } else {
+          this.store.showToast(`Uploaded ${successCount} files, ${failedCount} failed`, 'warning');
+          this.addTransferHistory('export', successCount, failedCount > 0 ? 'partial' : 'completed');
+        }
+
+        // Refresh remote files list
+        await this.loadRemoteFiles();
       } catch (error) {
         console.error('Export error:', error);
         this.store.showToast(`Export error: ${error.message}`, 'error');
