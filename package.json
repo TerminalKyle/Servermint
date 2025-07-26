@@ -18,6 +18,7 @@
     "@tauri-apps/plugin-http": "^2.5.0",
     "@tauri-apps/plugin-updater": "^2.9.0",
     "core-js": "^3.8.3",
+    "tauri-plugin-drpc": "^1.0.3",
     "vue": "^3.2.13",
     "vue-router": "^4.2.5",
     "vuetify": "^3.9.2"
@@ -26,11 +27,15 @@
     "@babel/core": "^7.12.16",
     "@babel/eslint-parser": "^7.12.16",
     "@tauri-apps/cli": "^2.6.2",
+    "@types/node": "^24.1.0",
+    "@types/webpack-env": "^1.18.8",
     "@vue/cli-plugin-babel": "~5.0.0",
     "@vue/cli-plugin-eslint": "~5.0.0",
     "@vue/cli-service": "~5.0.0",
     "eslint": "^7.32.0",
-    "eslint-plugin-vue": "^8.0.3"
+    "eslint-plugin-vue": "^8.0.3",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3"
   },
   "eslintConfig": {
     "root": true,

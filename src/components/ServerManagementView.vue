@@ -1469,7 +1469,8 @@ export default {
         }
       },
       deep: true
-    }
+    },
+
   },
   beforeUnmount() {
     // Mark component as destroyed
