@@ -603,49 +603,152 @@ pub fn save_servers(
     manager.save_servers()
 } 
 
+#[tauri::command]
+pub async fn download_and_install_mod(
+    url: String,
+    server_id: String,
+    server_path: String,
+    folder: String,
+    filename: String
+) -> Result<String, String> {
+    println!("=== Starting mod installation ===");
+    println!("URL: {}", url);
+    println!("Server ID: {}", server_id);
+    println!("Server Path: {}", server_path);
+    println!("Folder: {}", folder);
+    println!("Filename: {}", filename);
+    
+    // Create the full mod folder path
+    let mod_folder = format!("{}/{}", server_path, folder).replace("//", "/");
+    println!("Full mod folder path: {}", mod_folder);
+    
+    // Create the mod folder if it doesn't exist
+    match std::fs::create_dir_all(&mod_folder) {
+        Ok(_) => println!("Successfully created/verified mod folder: {}", mod_folder),
+        Err(e) => {
+            let error_msg = format!("Failed to create mod folder: {}", e);
+            println!("Error: {}", error_msg);
+            return Err(error_msg);
+        }
+    }
+    
+    // Create the full destination path
+    let destination = format!("{}/{}", mod_folder, filename).replace("//", "/");
+    println!("Full destination path: {}", destination);
+    
+    // Download the mod file
+    println!("Starting download to {}", destination);
+    match download_file(url, destination.clone()).await {
+        Ok(_) => println!("Successfully downloaded mod file"),
+        Err(e) => {
+            let error_msg = format!("Failed to download mod: {}", e);
+            println!("Error: {}", error_msg);
+            return Err(error_msg);
+        }
+    }
+    
+    // Verify the file exists
+    match std::fs::metadata(&destination) {
+        Ok(metadata) => println!("Verified file exists with size: {} bytes", metadata.len()),
+        Err(e) => {
+            let error_msg = format!("Failed to verify downloaded file: {}", e);
+            println!("Error: {}", error_msg);
+            return Err(error_msg);
+        }
+    }
+    
+    println!("=== Mod installation completed successfully ===");
+    Ok(destination)
+}
+
 // Add a download function to handle file downloads
 #[tauri::command]
 pub async fn download_file(url: String, destination: String) -> Result<String, String> {
-    println!("Downloading file from {} to {}", url, destination);
+    println!("=== Starting file download ===");
+    println!("URL: {}", url);
+    println!("Destination: {}", destination);
     
-    // Create a reqwest client
-    let client = reqwest::Client::new();
+    // Create a reqwest client with a longer timeout
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(300))  // 5 minute timeout
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
     
     // Send the request
-    let response = match client.get(&url).send().await {
-        Ok(response) => {
-            if !response.status().is_success() {
-                return Err(format!("Failed to download: HTTP status {}", response.status()));
-            }
-            response
-        },
-        Err(e) => return Err(format!("Failed to send request: {}", e)),
-    };
-    
-    // Get the response bytes
-    let bytes = match response.bytes().await {
-        Ok(bytes) => bytes,
-        Err(e) => return Err(format!("Failed to get response bytes: {}", e)),
-    };
-    
-    println!("Downloaded {} bytes", bytes.len());
-    
+    println!("Sending HTTP request...");
+    let response = client.get(&url)
+        .header("User-Agent", "ServerMint/1.0")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to send request: {}", e))?;
+
+    // Check if request was successful
+    if !response.status().is_success() {
+        let error_msg = format!("Failed to download: HTTP status {}", response.status());
+        println!("Error: {}", error_msg);
+        return Err(error_msg);
+    }
+    println!("Received successful HTTP response");
+
+    // Get the total size if available
+    let total_size = response.content_length().unwrap_or(0);
+    println!("Total file size: {} bytes", total_size);
+
     // Create the destination directory if it doesn't exist
+    println!("Creating parent directories if needed...");
     if let Some(parent) = std::path::Path::new(&destination).parent() {
         if !parent.exists() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create directory: {}", e))?;
+            println!("Successfully created parent directories");
         }
     }
-    
-    // Write the file
-    let mut file = File::create(&destination)
+
+    // Open file for writing
+    println!("Opening destination file...");
+    let mut file = std::fs::File::create(&destination)
         .map_err(|e| format!("Failed to create file: {}", e))?;
-    
-    file.write_all(&bytes)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
-    
-    println!("Successfully downloaded file to {}", destination);
+
+    // Download the file in chunks
+    println!("Starting download...");
+    let mut downloaded: u64 = 0;
+    let mut stream = response.bytes_stream();
+
+    use futures_util::StreamExt;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| format!("Error while downloading file: {}", e))?;
+        std::io::Write::write_all(&mut file, &chunk)
+            .map_err(|e| format!("Error while writing to file: {}", e))?;
+        
+        downloaded += chunk.len() as u64;
+        if total_size > 0 {
+            let progress = (downloaded as f64 / total_size as f64 * 100.0) as u32;
+            println!("Download progress: {}% ({}/{} bytes)", progress, downloaded, total_size);
+        }
+    }
+
+    // Verify the downloaded file
+    println!("Verifying downloaded file...");
+    match std::fs::metadata(&destination) {
+        Ok(metadata) => {
+            let file_size = metadata.len();
+            if total_size > 0 && file_size != total_size {
+                let error_msg = format!("File size mismatch. Expected: {}, Got: {}", total_size, file_size);
+                println!("Error: {}", error_msg);
+                // Try to clean up the incomplete file
+                let _ = std::fs::remove_file(&destination);
+                return Err(error_msg);
+            }
+            println!("File size verified: {} bytes", file_size);
+        },
+        Err(e) => {
+            let error_msg = format!("Failed to verify downloaded file: {}", e);
+            println!("Error: {}", error_msg);
+            return Err(error_msg);
+        }
+    }
+
+    println!("=== File download completed successfully ===");
     Ok(destination)
 }
 

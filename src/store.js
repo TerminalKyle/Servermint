@@ -643,6 +643,9 @@ export const store = reactive({
   // Project management
   projects: [],
   
+  // Mod management
+  installedMods: new Map(), // Map of serverId -> mods array
+  
   // Settings
   settings: {
     general: {
@@ -680,50 +683,40 @@ export const store = reactive({
       
       // Update the servers array with data from backend
       if (servers && Array.isArray(servers)) {
-        this.servers = servers.map(server => ({
-          id: server.id,
-          name: server.config.name,
-          version: server.config.version,
-          type: server.config.server_type,
-          status: server.status,
-          path: server.config.path,
-          icon: null,
-          memoryAllocation: server.config.max_memory / 1024, // Convert MB to GB
-          autoStart: false,
-          created: new Date().toISOString()
+        this.servers = await Promise.all(servers.map(async server => {
+          // Check for server icon
+          let icon = null;
+          const iconPath = `${server.config.path}/server-icon.png`;
+          try {
+            // Check if icon exists
+            const iconExists = await invoke('plugin:fs|exists', { path: iconPath });
+            if (iconExists) {
+              // Read icon file
+              const iconData = await invoke('plugin:fs|read_binary_file', { path: iconPath });
+              // Convert to base64
+              const base64 = btoa(String.fromCharCode.apply(null, iconData));
+              icon = `data:image/png;base64,${base64}`;
+            }
+          } catch (error) {
+            console.warn(`Could not load icon for server ${server.config.name}:`, error);
+          }
+
+          return {
+            id: server.id,
+            name: server.config.name,
+            version: server.config.version,
+            type: server.config.server_type,
+            status: server.status,
+            path: server.config.path,
+            icon: icon,
+            memoryAllocation: server.config.max_memory / 1024, // Convert MB to GB
+            autoStart: false,
+            created: new Date().toISOString()
+          };
         }));
       } else {
         // If no servers returned, start with empty array
         this.servers = [];
-        
-        // Add some sample servers for testing if backend is empty
-        console.log('No servers found in backend, adding sample servers for testing');
-        this.servers = [
-          {
-            id: 'sample-1',
-            name: 'Sample Vanilla Server',
-            version: '1.21.8',
-            type: 'Vanilla',
-            status: 'offline',
-            path: 'C:/servermint/servers/sample-vanilla',
-            icon: null,
-            memoryAllocation: 4,
-            autoStart: false,
-            created: new Date().toISOString()
-          },
-          {
-            id: 'sample-2',
-            name: 'Sample Paper Server',
-            version: '1.21.2',
-            type: 'Paper',
-            status: 'online',
-            path: 'C:/servermint/servers/sample-paper',
-            icon: null,
-            memoryAllocation: 6,
-            autoStart: true,
-            created: new Date().toISOString()
-          }
-        ];
       }
       
       console.log('Updated servers array:', this.servers);
@@ -763,7 +756,6 @@ export const store = reactive({
     }
     
     try {
-      
       // Create a server object
       const newServer = {
         id: currentServerId,
@@ -772,13 +764,11 @@ export const store = reactive({
         type: serverData.type,
         status: 'installing',
         path: serverData.path,
-        icon: serverData.icon,
+        icon: null, // Will be updated after saving icon
         memoryAllocation: serverData.memoryAllocation || 4,
         autoStart: serverData.autoStart || false,
         created: new Date().toISOString()
       };
-      
-      // Note: We don't add to backend here because setup_server will handle it
       
       // Initialize download progress
       this.downloadProgress.set(currentServerId, {
@@ -793,6 +783,33 @@ export const store = reactive({
       } catch (error) {
         console.error(`Failed to create directory: ${error}`);
         throw new Error(`Failed to create server directory: ${error.message || 'Unknown error'}`);
+      }
+
+      // Save server icon if provided
+      if (serverData.icon) {
+        try {
+          // Convert base64 to binary
+          const base64Data = serverData.icon.split(',')[1];
+          const binaryData = atob(base64Data);
+          const uint8Array = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+            uint8Array[i] = binaryData.charCodeAt(i);
+          }
+
+          // Save icon as server-icon.png
+          const iconPath = `${serverData.path}/server-icon.png`;
+          await invoke('plugin:fs|write_file', { 
+            path: iconPath,
+            contents: Array.from(uint8Array)
+          });
+
+          // Update server object with icon path
+          newServer.icon = iconPath;
+          console.log('Server icon saved:', iconPath);
+        } catch (error) {
+          console.error('Failed to save server icon:', error);
+          // Non-critical error, continue without icon
+        }
       }
       
       // Update download progress
@@ -857,7 +874,7 @@ export const store = reactive({
       // Create start.bat file for Windows
       const startBatPath = `${serverData.path}/start.bat`;
       const startBat = `@echo off
-start /min java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCustomJvmArgs ? this.settings.java.jvmArgs : '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200'} -jar server.jar nogui
+start /min java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCustomJvmArgs ? this.settings.java.jvmArgs : '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+MaxGCPauseMillis=200'} -jar server.jar nogui
 pause`;
       
       try {
@@ -870,7 +887,7 @@ pause`;
       // Create start.sh file for Linux/Mac
       const startShPath = `${serverData.path}/start.sh`;
       const startSh = `#!/bin/sh
-java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCustomJvmArgs ? this.settings.java.jvmArgs : '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200'} -jar server.jar nogui`;
+java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCustomJvmArgs ? this.settings.java.jvmArgs : '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+MaxGCPauseMillis=200'} -jar server.jar nogui`;
       
       try {
         await tauriAPI.writeFile(startShPath, startSh);
@@ -1688,6 +1705,94 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     
     // Default to localhost for local servers
     return 'localhost';
+  },
+
+  // Mod management methods
+  async getInstalledMods(serverId) {
+    try {
+      if (!this.installedMods.has(serverId)) {
+        // Initialize empty array if no mods for this server
+        this.installedMods.set(serverId, []);
+        
+        // Try to load mods from server's mods folder
+        const server = this.getServerById(serverId);
+        if (server) {
+          const modsPath = `${server.path}/mods`;
+          try {
+            const files = await tauriAPI.readDir(modsPath);
+            const mods = files
+              .filter(file => file.name.endsWith('.jar'))
+              .map(file => ({
+                name: file.name.replace('.jar', ''),
+                version: 'Unknown',
+                type: 'Mod',
+                description: 'Local mod',
+                image: '',
+                source: 'Local',
+                serverId: serverId,
+                folder: 'mods',
+                path: `${modsPath}/${file.name}`
+              }));
+            this.installedMods.set(serverId, mods);
+          } catch (error) {
+            console.log('No mods folder found or error reading mods:', error);
+          }
+        }
+      }
+      return this.installedMods.get(serverId) || [];
+    } catch (error) {
+      console.error('Error getting installed mods:', error);
+      return [];
+    }
+  },
+
+  async addInstalledMod(mod) {
+    try {
+      const serverId = mod.serverId;
+      if (!this.installedMods.has(serverId)) {
+        this.installedMods.set(serverId, []);
+      }
+      const mods = this.installedMods.get(serverId);
+      mods.push(mod);
+      return true;
+    } catch (error) {
+      console.error('Error adding installed mod:', error);
+      return false;
+    }
+  },
+
+  async removeInstalledMod(serverId, modName) {
+    try {
+      if (!this.installedMods.has(serverId)) {
+        return false;
+      }
+      const mods = this.installedMods.get(serverId);
+      const index = mods.findIndex(m => m.name === modName);
+      if (index !== -1) {
+        mods.splice(index, 1);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error removing installed mod:', error);
+      return false;
+    }
+  },
+
+  async createModFolder(serverId, folder) {
+    try {
+      const server = this.getServerById(serverId);
+      if (!server) {
+        throw new Error('Server not found');
+      }
+      
+      const folderPath = `${server.path}/${folder}`;
+      await tauriAPI.createDir(folderPath);
+      return { success: true, path: folderPath };
+    } catch (error) {
+      console.error('Error creating mod folder:', error);
+      return { success: false, error: error.message };
+    }
   }
 });
 

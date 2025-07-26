@@ -1,5 +1,12 @@
 <template>
   <div class="server-view">
+    <!-- Initial Loading Screen -->
+    <div v-if="showInitialLoading" class="initial-loading" :class="{ 'fade-out': isLoadingFadingOut }">
+      <div class="loading-logo">
+        <img src="/servermint.png" alt="ServerMint Logo" />
+      </div>
+    </div>
+
     <!-- Filter tabs -->
     <div class="filter-section mb-4">
       <div class="d-flex align-center">
@@ -272,16 +279,18 @@ export default {
     return {
       activeTab: 'all',
       searchQuery: '',
-      viewMode: 'grid', // Add this line
+      viewMode: 'grid',
+      showInitialLoading: !localStorage.getItem('hasVisitedServers'), // Only show if first visit
+      isLoadingFadingOut: false,
       contextMenu: {
-              show: false,
-      x: 0,
-      y: 0,
-      server: null
-    },
-    showDeleteConfirmation: false,
-    serverToDelete: null,
-    deleteLoading: false,
+        show: false,
+        x: 0,
+        y: 0,
+        server: null
+      },
+      showDeleteConfirmation: false,
+      serverToDelete: null,
+      deleteLoading: false,
       store: store,
       isRefreshing: false
     }
@@ -289,6 +298,9 @@ export default {
   mounted() {
     document.addEventListener('click', this.hideContextMenu);
     document.addEventListener('keydown', this.handleKeyDown);
+    
+    // Start loading animation
+    this.startLoadingAnimation();
     
     // Load servers from backend
     this.loadServers();
@@ -331,6 +343,24 @@ export default {
     }
   },
   methods: {
+    async startLoadingAnimation() {
+      if (!this.showInitialLoading) return; // Skip if not showing loading screen
+      
+      // Mark as visited
+      localStorage.setItem('hasVisitedServers', 'true');
+      
+      // Wait for a minimum time to show the loading screen
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Start fade out
+      this.isLoadingFadingOut = true;
+      
+      // Remove loading screen after fade out
+      setTimeout(() => {
+        this.showInitialLoading = false;
+      }, 500);
+    },
+    
     async loadServers() {
       try {
         await this.store.loadServers();
@@ -597,6 +627,60 @@ export default {
   padding: 16px;
   position: relative;
 }
+
+/* Initial Loading Screen */
+.initial-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, rgba(10, 10, 10, 0.8) 0%, rgba(26, 26, 26, 0.8) 50%, rgba(10, 10, 10, 0.8) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999; /* Increased z-index to ensure it's above everything */
+  backdrop-filter: blur(15px); /* Increased blur effect */
+  -webkit-backdrop-filter: blur(15px); /* For Safari support */
+  opacity: 1;
+  transition: opacity 0.5s ease;
+  margin: 0;
+  padding: 0;
+  left: 0 !important; /* Force it to cover the entire screen */
+  transform: translateX(0) !important; /* Ensure no transform affects it */
+}
+
+.initial-loading.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-logo {
+  width: 180px; /* Increased from 120px */
+  height: 180px; /* Increased from 120px */
+  animation: spinLogo 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 20px rgba(74, 222, 128, 0.3)); /* Added glow effect */
+}
+
+.loading-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@keyframes spinLogo {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+    filter: drop-shadow(0 0 30px rgba(74, 222, 128, 0.5));
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
 .filter-tabs {
   background-color: rgba(30, 30, 30, 0.8);
   border-radius: 50px !important;

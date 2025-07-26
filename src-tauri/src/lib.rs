@@ -578,19 +578,21 @@ pub fn run() {
     .plugin(tauri_plugin_process::init())
     .invoke_handler(tauri::generate_handler![
       // Server commands
-      server::add_server,
       server::list_servers,
-      server::get_server_info,
+      server::add_server,
       server::remove_server,
       server::start_server,
       server::stop_server,
       server::send_server_command,
       server::get_server_output,
       server::setup_server,
+      server::save_servers,
       server::download_file,
+      server::download_and_install_mod,
       server::get_local_ip,
       server::check_java,
       server::setup_java,
+      server::get_java_path,
       
       // Node commands
       node::list_nodes,

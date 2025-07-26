@@ -1826,37 +1826,58 @@ export default {
       }
     },
     
-    async deleteFile(file) {
-      const itemType = file.isDirectory ? 'folder' : 'file';
-      const itemName = file.name;
-      
-      // Show confirmation dialog
-      const confirmed = await this.store.showConfirmDialog(
-        `Delete ${itemType}`,
-        `Are you sure you want to delete "${itemName}"? This action cannot be undone.`
-      );
-      
-      if (!confirmed) return;
-      
+    async deleteFile(fileOrFilename) {
       try {
-        const filePath = this.server.path + '/' + file.name;
-        console.log(`[deleteFile] Deleting: ${filePath}`);
+        console.log('[deleteFile] Starting deletion process');
         
-        if (file.isDirectory) {
-          // Delete directory recursively
-          await this.store.removeDirectory(filePath);
-        } else {
-          // Delete single file
-          await this.store.removeFile(filePath);
+        // Determine if we're dealing with a file object or just a filename
+        const isFileObject = typeof fileOrFilename === 'object';
+        const file = isFileObject ? fileOrFilename : { name: fileOrFilename, isDirectory: false };
+        
+        // Show confirmation dialog for file objects
+        if (isFileObject) {
+          const itemType = file.isDirectory ? 'folder' : 'file';
+          const confirmed = await this.store.showConfirmDialog(
+            `Delete ${itemType}`,
+            `Are you sure you want to delete "${file.name}"? This action cannot be undone.`
+          );
+          if (!confirmed) return;
         }
+
+        // Get the current directory path
+        const currentPath = this.currentPath || '';
         
-        this.store.showToast(`Deleted ${itemName}`, 'success');
+        // Construct the full file path
+        const fullPath = `${this.server.path}/${currentPath}/${file.name}`.replace(/\/+/g, '/');
+        console.log('[deleteFile] Full path:', fullPath);
+        
+        // Delete the file or directory
+        if (file.isDirectory) {
+          await this.store.removeDirectory(fullPath);
+        } else {
+          await this.store.removeFile(fullPath);
+        }
         
         // Refresh the file list
         await this.loadFiles();
+        
+        // Show success message
+        const successMessage = `Successfully deleted ${file.name}`;
+        if (window.showSuccess) {
+          window.showSuccess('File Deleted', successMessage);
+        } else {
+          this.store.showToast(successMessage, 'success');
+        }
       } catch (error) {
         console.error('[deleteFile] Error:', error);
-        this.store.showToast(`Failed to delete ${itemName}: ${error}`, 'error');
+        
+        // Show error message
+        const errorMessage = `Failed to delete ${fileOrFilename.name || fileOrFilename}: ${error}`;
+        if (window.showError) {
+          window.showError('Delete Failed', errorMessage);
+        } else {
+          this.store.showToast(errorMessage, 'error');
+        }
       }
     },
 
