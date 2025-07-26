@@ -267,6 +267,20 @@
               :error-messages="!targetServerId ? 'Please select a server' : ''"
             ></v-select>
 
+            <div class="text-subtitle-1 mb-2">Select Version</div>
+            <v-select
+              v-model="selectedModVersion"
+              :items="availableModVersions"
+              variant="outlined"
+              density="comfortable"
+              placeholder="Choose a version"
+              bg-color="#2A2A2A"
+              class="mb-4"
+              :error-messages="!selectedModVersion ? 'Please select a version' : ''"
+              :loading="loadingVersions"
+              :disabled="loadingVersions"
+            ></v-select>
+
             <div class="text-subtitle-1 mb-2">Installation Location</div>
             <v-text-field
               v-model="targetFolder"
@@ -428,6 +442,11 @@ export default {
       targetServerId: null,
       targetFolder: null, // New for server selection dialog
       installLoading: false, // New for install button loading
+      
+      // Version selection
+      selectedModVersion: null,
+      availableModVersions: [],
+      loadingVersions: false,
       
       // Local mod import dialog
       importLocalDialog: false,
@@ -615,7 +634,7 @@ export default {
         mod.source.toLowerCase().includes(query);
     },
     
-    installMod(mod) {
+    async installMod(mod) {
       console.log('=== Starting mod installation flow ===');
       console.log('Selected mod:', mod);
       
@@ -623,30 +642,93 @@ export default {
       this.pendingModInstall = mod;
       this.targetServerId = this.selectedServer; // Default to currently selected server
       this.targetFolder = 'mods'; // Default to mods folder
+      this.selectedModVersion = null; // Reset version selection
+      
+      // Fetch available versions
+      await this.fetchModVersions(mod.id);
       
       // Log the current state
       console.log('Current state:', {
         pendingMod: this.pendingModInstall,
         targetServer: this.targetServerId,
         targetFolder: this.targetFolder,
-        servers: this.servers
+        servers: this.servers,
+        availableVersions: this.availableModVersions
       });
       
       this.serverSelectionDialog = true;
     },
+
+    async fetchModVersions(modId) {
+      this.loadingVersions = true;
+      this.availableModVersions = [];
+      
+      try {
+        const response = await fetch(`https://api.modrinth.com/v2/project/${modId}/version`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch version information');
+        }
+        
+        const versions = await response.json();
+        
+        // Map versions to format for v-select
+        this.availableModVersions = versions.map(version => ({
+          title: `${version.version_number} (${version.game_versions.join(', ')})`,
+          value: {
+            version: version.version_number,
+            url: version.files[0]?.url,
+            loaders: version.loaders,
+            game_versions: version.game_versions
+          }
+        }));
+        
+        // Set default version to the latest one that matches current game version
+        const defaultVersion = versions.find(v => 
+          v.game_versions.includes(this.selectedVersion)
+        );
+        
+        if (defaultVersion) {
+          this.selectedModVersion = {
+            version: defaultVersion.version_number,
+            url: defaultVersion.files[0]?.url,
+            loaders: defaultVersion.loaders,
+            game_versions: defaultVersion.game_versions
+          };
+        }
+        
+      } catch (error) {
+        console.error('Error fetching mod versions:', error);
+        if (window.showError) {
+          window.showError('Error', 'Failed to fetch mod versions');
+        }
+      } finally {
+        this.loadingVersions = false;
+      }
+    },
     
     async confirmModInstall() {
       console.log('=== Confirming mod installation ===');
-      if (!this.pendingModInstall || !this.targetServerId) {
+      if (!this.pendingModInstall || !this.targetServerId || !this.selectedModVersion) {
         console.error('Missing required data:', {
           pendingMod: this.pendingModInstall,
-          targetServer: this.targetServerId
+          targetServer: this.targetServerId,
+          selectedVersion: this.selectedModVersion
         });
         return;
       }
 
       this.installLoading = true;
-      await this.downloadAndInstallMod(this.pendingModInstall);
+      
+      // Update the mod object with selected version information
+      const modToInstall = {
+        ...this.pendingModInstall,
+        version: this.selectedModVersion.version,
+        download_url: this.selectedModVersion.url,
+        loaders: this.selectedModVersion.loaders,
+        game_versions: this.selectedModVersion.game_versions
+      };
+      
+      await this.downloadAndInstallMod(modToInstall);
     },
     
     async downloadAndInstallMod(mod) {

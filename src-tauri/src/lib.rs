@@ -1,6 +1,8 @@
 mod server;
 mod setup;
 mod node;
+mod sftp;
+pub use sftp::*;
 
 use std::sync::{Arc, Mutex};
 use server::ServerManager;
@@ -41,141 +43,6 @@ async fn open_folder(path: String) -> Result<(), String> {
     
     Ok(())
   }
-}
-
-// SFTP Commands
-#[tauri::command]
-async fn test_sftp_connection(config: serde_json::Value) -> Result<serde_json::Value, String> {
-    let host = config["host"].as_str().ok_or("Host is required")?;
-    let port = config["port"].as_u64().unwrap_or(22) as u16;
-    let username = config["username"].as_str().ok_or("Username is required")?;
-    let password = config["password"].as_str().ok_or("Password is required")?;
-    
-    // For now, return success (in a real implementation, you'd use an SFTP library)
-    Ok(serde_json::json!({
-        "success": true,
-        "message": "SFTP connection test successful"
-    }))
-}
-
-#[tauri::command]
-async fn export_to_sftp(
-    server_id: String,
-    config: serde_json::Value,
-    files: Vec<serde_json::Value>,
-    app_handle: tauri::AppHandle
-) -> Result<serde_json::Value, String> {
-    let host = config["host"].as_str().ok_or("Host is required")?;
-    let port = config["port"].as_u64().unwrap_or(22) as u16;
-    let username = config["username"].as_str().ok_or("Username is required")?;
-    let password = config["password"].as_str().ok_or("Password is required")?;
-    let remote_path = config["remotePath"].as_str().unwrap_or("/");
-    
-    println!("Exporting {} files to SFTP server {}:{}", files.len(), host, port);
-    
-    // Simulate file transfer progress
-    for (i, file) in files.iter().enumerate() {
-        let file_name = file["name"].as_str().unwrap_or("unknown");
-        let progress = ((i + 1) as f64 / files.len() as f64 * 100.0) as u32;
-        
-        // Send progress update (commented out until proper Tauri v2 event emission is implemented)
-        // TODO: Implement proper event emission for SFTP progress
-        println!("SFTP Progress: {}% - {}", progress, file_name);
-        
-        // Simulate transfer delay
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    }
-    
-    Ok(serde_json::json!({
-        "success": true,
-        "fileCount": files.len(),
-        "message": "Files exported successfully"
-    }))
-}
-
-#[tauri::command]
-async fn import_from_sftp(
-    server_id: String,
-    config: serde_json::Value,
-    files: Vec<serde_json::Value>,
-    app_handle: tauri::AppHandle
-) -> Result<serde_json::Value, String> {
-    let host = config["host"].as_str().ok_or("Host is required")?;
-    let port = config["port"].as_u64().unwrap_or(22) as u16;
-    let username = config["username"].as_str().ok_or("Username is required")?;
-    let password = config["password"].as_str().ok_or("Password is required")?;
-    let import_path = config["importPath"].as_str().unwrap_or("/");
-    
-    println!("Importing {} files from SFTP server {}:{}", files.len(), host, port);
-    
-    // Simulate file transfer progress
-    for (i, file) in files.iter().enumerate() {
-        let file_name = file["name"].as_str().unwrap_or("unknown");
-        let progress = ((i + 1) as f64 / files.len() as f64 * 100.0) as u32;
-        
-        // Send progress update (commented out until proper Tauri v2 event emission is implemented)
-        // TODO: Implement proper event emission for SFTP progress
-        println!("SFTP Progress: {}% - {}", progress, file_name);
-        
-        // Simulate transfer delay
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    }
-    
-    Ok(serde_json::json!({
-        "success": true,
-        "fileCount": files.len(),
-        "message": "Files imported successfully"
-    }))
-}
-
-#[tauri::command]
-async fn list_remote_files(config: serde_json::Value, path: String) -> Result<serde_json::Value, String> {
-    let host = config["host"].as_str().ok_or("Host is required")?;
-    let port = config["port"].as_u64().unwrap_or(22) as u16;
-    let username = config["username"].as_str().ok_or("Username is required")?;
-    let password = config["password"].as_str().ok_or("Password is required")?;
-    
-    println!("Listing remote files on {}:{} at path: {}", host, port, path);
-    
-    // Simulate remote file listing
-    let mock_files = vec![
-        serde_json::json!({
-            "name": "server.jar",
-            "isDirectory": false,
-            "size": 1024 * 1024 * 50, // 50MB
-            "modified": "2024-01-01T00:00:00Z"
-        }),
-        serde_json::json!({
-            "name": "server.properties",
-            "isDirectory": false,
-            "size": 1024, // 1KB
-            "modified": "2024-01-01T00:00:00Z"
-        }),
-        serde_json::json!({
-            "name": "plugins",
-            "isDirectory": true,
-            "size": 0,
-            "modified": "2024-01-01T00:00:00Z"
-        }),
-        serde_json::json!({
-            "name": "worlds",
-            "isDirectory": true,
-            "size": 0,
-            "modified": "2024-01-01T00:00:00Z"
-        })
-    ];
-    
-    Ok(serde_json::json!({
-        "success": true,
-        "files": mock_files
-    }))
-}
-
-#[tauri::command]
-async fn cancel_sftp_transfer() -> Result<(), String> {
-    println!("Cancelling SFTP transfer");
-    // In a real implementation, you'd cancel the ongoing transfer
-    Ok(())
 }
 
 #[tauri::command]
@@ -610,11 +477,11 @@ pub fn run() {
       open_folder,
       
       // SFTP commands
-      test_sftp_connection,
-      export_to_sftp,
-      import_from_sftp,
-      list_remote_files,
-      cancel_sftp_transfer,
+      sftp::test_sftp_connection,
+      sftp::upload_file_sftp,
+      sftp::download_file_sftp,
+      sftp::list_remote_files,
+      sftp::run_sftp_command,
       
       // File operations
       get_file_size,
