@@ -217,6 +217,36 @@
           </template>
         </v-col>
       </v-row>
+      
+      <!-- Promotional Banner -->
+      <v-row class="mt-4">
+        <v-col cols="12">
+          <v-card class="promo-banner" color="grey-darken-4">
+            <v-card-text class="d-flex flex-column flex-md-row align-center justify-space-between pa-6">
+              <div class="d-flex align-center mb-4 mb-md-0">
+                <v-avatar size="48" color="success" class="mr-4 elevation-2">
+                  <v-icon icon="mdi-server-network" size="24"></v-icon>
+                </v-avatar>
+                <div>
+                  <h3 class="text-h6 mb-1 font-weight-bold">Need a VPS for your Minecraft servers?</h3>
+                  <p class="text-body-2 mb-0">
+                    Get <span class="text-success font-weight-bold">25% off</span> at Orbit Hosting with code <code class="promo-code">MINT</code>
+                  </p>
+                </div>
+              </div>
+              <v-btn
+                color="success"
+                size="large"
+                prepend-icon="mdi-rocket-launch"
+                @click="openOrbitHosting"
+                class="px-6 elevation-2"
+              >
+                Get Started
+              </v-btn>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
     </v-container>
     
     <!-- Add Node Dialog -->
@@ -689,6 +719,10 @@ export default {
     
     cancelAddNode() {
       this.showAddNodeDialog = false;
+    },
+
+    openOrbitHosting() {
+      window.open('https://orbit.hosting', '_blank');
     }
   }
 };
@@ -701,5 +735,38 @@ export default {
 
 .node-card:hover {
   transform: translateY(-2px);
+}
+
+.promo-banner {
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #1a1a1a 0%, #0d160d 50%, #0a1f0a 100%) !important;
+  border: 1px solid rgba(76, 175, 80, 0.1) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+  overflow: hidden;
+  position: relative;
+}
+
+.promo-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    rgba(76, 175, 80, 0) 0%,
+    rgba(76, 175, 80, 0.2) 50%,
+    rgba(76, 175, 80, 0) 100%
+  );
+}
+
+.promo-code {
+  background: rgba(76, 175, 80, 0.15);
+  color: #4CAF50;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-family: monospace;
+  letter-spacing: 1px;
 }
 </style> 

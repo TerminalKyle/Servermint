@@ -2,7 +2,7 @@ mod server;
 mod setup;
 mod node;
 mod sftp;
-pub use sftp::*;
+mod export;
 
 use std::sync::{Arc, Mutex};
 use server::ServerManager;
@@ -335,7 +335,6 @@ async fn check_for_updates() -> Result<serde_json::Value, String> {
 async fn restart_application(app_handle: tauri::AppHandle) -> Result<(), String> {
     println!("Restarting application...");
     app_handle.restart();
-    Ok(()) // This is fine, the restart will happen before this returns
 }
 
 #[tauri::command]
@@ -482,6 +481,9 @@ pub fn run() {
       sftp::download_file_sftp,
       sftp::list_remote_files,
       sftp::run_sftp_command,
+      
+      // Export commands
+      export::export_server_zip,
       
       // File operations
       get_file_size,

@@ -133,7 +133,10 @@
         >
           <div 
             class="server-card" 
-            :class="{ 'list-view': viewMode === 'list' }"
+            :class="{ 
+              'list-view': viewMode === 'list',
+              'exporting': exportingServerId === server.id 
+            }"
             @click="openServer(server)"
             @contextmenu.prevent="showContextMenu($event, server)"
           >
@@ -231,6 +234,13 @@
       
       <div class="menu-divider"></div>
       
+      <div class="menu-item" @click="exportServerContextMenu">
+        <v-icon class="menu-icon" color="white">mdi-export</v-icon>
+        <span>Export server</span>
+      </div>
+
+      <div class="menu-divider"></div>
+      
       <div class="menu-item delete-item" @click="deleteServerContextMenu">
         <v-icon class="menu-icon" color="white">mdi-delete-outline</v-icon>
         <span>Delete</span>
@@ -268,6 +278,7 @@
 import CreateServerDialog from './CreateServerDialog.vue';
 import { store } from '../store.js'
 import ConfirmDialog from './ConfirmDialog.vue';
+import { invoke } from '@tauri-apps/api/core'
 
 export default {
   name: 'ServersView',
@@ -280,7 +291,7 @@ export default {
       activeTab: 'all',
       searchQuery: '',
       viewMode: 'grid',
-      showInitialLoading: !localStorage.getItem('hasVisitedServers'), // Only show if first visit
+      showInitialLoading: !localStorage.getItem('hasVisitedServers'),
       isLoadingFadingOut: false,
       contextMenu: {
         show: false,
@@ -288,6 +299,7 @@ export default {
         y: 0,
         server: null
       },
+      exportingServerId: null,
       showDeleteConfirmation: false,
       serverToDelete: null,
       deleteLoading: false,
@@ -485,6 +497,61 @@ export default {
         console.log('Copying path:', maskedPath);
         navigator.clipboard.writeText(maskedPath);
         this.store.showToast('Server path copied to clipboard', 'success');
+      }
+      this.hideContextMenu();
+    },
+    
+    async exportServerContextMenu() {
+      if (this.contextMenu.server) {
+        const server = this.contextMenu.server;
+        
+        // Show creating backup toast and set exporting state
+        window.showInfo('Creating Backup', `Creating backup of "${server.name}"...`);
+        this.exportingServerId = server.id;
+        
+        try {
+          // Get all server files recursively
+          const result = await this.store.getServerFilesRecursive(server.id);
+          console.log('Files to export:', result);
+          console.log('Sample file object:', result.files[0]);
+          
+          if (!result.success || !Array.isArray(result.files)) {
+            throw new Error('Failed to get server files');
+          }
+          
+          // Create file list for export
+          const filesToExport = result.files.map(file => ({
+            name: file.relativePath || file.name,  // Use relative path for name to preserve structure
+            path: file.fullPath || `${server.path}/${file.relativePath || file.name}`  // Use full path for actual file location
+          }));
+          
+          console.log('Exporting files:', filesToExport);
+          
+          // Filter out directories and map files
+          // Filter out directories and map files for export
+          const exportFiles = result.files
+            .filter(file => !file.isDirectory) // Only include files, not directories
+            .map(file => ({
+              name: file.name,
+              path: `${server.path}/${file.name}`
+            }));
+
+          console.log('Filtered files to export:', exportFiles.length);
+          
+          // Call export function with full paths
+          await invoke('export_server_zip', {
+            serverId: server.id,
+            files: exportFiles,
+            serverName: server.name
+          });
+          
+          window.showSuccess('Server Exported', `Server "${server.name}" has been exported successfully!`);
+        } catch (error) {
+          console.error('Error exporting server:', error);
+          window.showError('Export Failed', `Failed to export server: ${error.toString()}`);
+        } finally {
+          this.exportingServerId = null;
+        }
       }
       this.hideContextMenu();
     },
@@ -745,6 +812,24 @@ export default {
   transform: translateY(-2px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
   border-color: rgba(74, 222, 128, 0.2);
+}
+
+.server-card.exporting {
+  opacity: 0.7;
+  pointer-events: none;
+  position: relative;
+}
+
+.server-card.exporting::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  backdrop-filter: blur(1px);
 }
 .server-card:hover::before {
   opacity: 1;

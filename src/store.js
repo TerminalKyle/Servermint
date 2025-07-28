@@ -1620,7 +1620,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
 
       if (result && Array.isArray(result) && result.length > 0) {
         console.log('Got files from list_remote_files:', result);
-        return result;
+      return result;
       }
 
       // If both methods fail, use mock data

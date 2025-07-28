@@ -1133,12 +1133,142 @@
         <span>Delete</span>
       </div>
     </div>
+
+    <!-- Export Server Dialog -->
+    <v-dialog v-model="showExportDialog" max-width="500">
+      <v-card>
+        <v-card-title class="text-h5 pb-2">Export Server</v-card-title>
+        
+        <v-card-text>
+          <p class="mb-4">Choose how you want to share your server:</p>
+          
+          <v-row>
+            <v-col cols="12" sm="6">
+              <v-card variant="outlined" class="h-100" @click="exportAsZip" style="cursor: pointer">
+                <v-card-text class="d-flex flex-column align-center text-center pa-4">
+                  <v-icon size="48" color="primary" class="mb-2">mdi-folder-zip</v-icon>
+                  <h3 class="text-h6 mb-1">Download ZIP</h3>
+                  <p class="text-caption text-medium-emphasis">
+                    Export as a ZIP file to share manually
+                  </p>
+                </v-card-text>
+              </v-card>
+            </v-col>
+            
+            <v-col cols="12" sm="6">
+              <v-card variant="outlined" class="h-100" @click="generateShareCode" style="cursor: pointer">
+                <v-card-text class="d-flex flex-column align-center text-center pa-4">
+                  <v-icon size="48" color="success" class="mb-2">mdi-share-variant</v-icon>
+                  <h3 class="text-h6 mb-1">Share Code</h3>
+                  <p class="text-caption text-medium-emphasis">
+                    Generate a code valid for 7 days
+                  </p>
+                </v-card-text>
+              </v-card>
+            </v-col>
+          </v-row>
+
+          <!-- Share Code Result -->
+          <v-expand-transition>
+            <div v-if="shareCode" class="mt-4">
+              <v-alert
+                color="success"
+                variant="outlined"
+                class="d-flex flex-column align-center text-center"
+              >
+                <h3 class="text-h6 mb-2">Your Share Code</h3>
+                <code class="text-h5 mb-2">{{ shareCode }}</code>
+                <p class="text-caption mb-2">This code will expire in 7 days</p>
+                <v-btn
+                  color="success"
+                  variant="text"
+                  prepend-icon="mdi-content-copy"
+                  @click="copyShareCode"
+                >
+                  Copy Code
+                </v-btn>
+              </v-alert>
+            </div>
+          </v-expand-transition>
+
+          <!-- Export Progress -->
+          <v-expand-transition>
+            <div v-if="isExporting" class="mt-4">
+              <p class="text-center mb-2">{{ exportStatus }}</p>
+              <v-progress-linear
+                indeterminate
+                color="primary"
+              ></v-progress-linear>
+            </div>
+          </v-expand-transition>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            variant="text"
+            @click="showExportDialog = false"
+          >
+            Close
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Import Server Dialog -->
+    <v-dialog v-model="showImportDialog" max-width="500">
+      <v-card>
+        <v-card-title class="text-h5 pb-2">Import Server</v-card-title>
+        
+        <v-card-text>
+          <p class="mb-4">Enter a share code or upload a server ZIP file:</p>
+          
+          <v-text-field
+            v-model="importCode"
+            label="Share Code"
+            placeholder="Enter your share code"
+            variant="outlined"
+            class="mb-4"
+          ></v-text-field>
+
+          <v-divider class="mb-4"><span class="mx-2">OR</span></v-divider>
+          
+          <v-file-input
+            v-model="importFile"
+            label="Server ZIP"
+            accept=".zip"
+            variant="outlined"
+            prepend-icon="mdi-folder-zip"
+            :rules="[v => !v || v.size < 1000000000 || 'File size should be less than 1 GB']"
+          ></v-file-input>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            variant="text"
+            @click="showImportDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            :loading="isImporting"
+            :disabled="!importCode && !importFile"
+            @click="importServer"
+          >
+            Import
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
 <script>
 import { store } from '../store.js'
 import FileEditor from './FileEditor.vue';
+import { invoke } from '@tauri-apps/api/core'
 
 export default {
   name: 'ServerManagementView',
@@ -1258,7 +1388,13 @@ export default {
       transferHistory: [],
       remoteFileTree: [],
       exportLoading: false,
-      importLoading: false
+      importLoading: false,
+      showExportDialog: false,
+      shareCode: null,
+      isExporting: false,
+      exportStatus: '',
+      importCode: '',
+      importFile: null
     }
   },
   computed: {
@@ -2829,7 +2965,7 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
             });
           }
         }
-
+        
         // Start transfer progress
         this.startTransferProgress('export', totalFiles);
 
@@ -2843,7 +2979,7 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
               ...file,
               config: { ...config, password: '***' }
             });
-
+        
             // Update progress
             this.transferProgress.currentFile = file.name;
             this.transferProgress.bytesTransferred += file.size || 0;
@@ -2860,9 +2996,9 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
               { ...config, remote_path: remoteDir },
               file.localPath,
               file.remotePath
-            );
-
-            if (result.success) {
+        );
+        
+        if (result.success) {
               successCount++;
               this.transferProgress.filesCompleted++;
             } else {
@@ -2958,8 +3094,8 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
             },
             file.path,
             `${this.server.path}/${file.name}`
-          );
-          
+        );
+        
           if (!result.success) {
             throw new Error(`Failed to download ${file.name}: ${result.error}`);
           }
@@ -2971,10 +3107,10 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
         
         this.store.showToast(`Successfully imported ${filesToImport.length} files`, 'success');
         this.addTransferHistory('import', filesToImport.length, 'completed');
-        
-        // Refresh local files list
-        if (this.activeTab === 'files') {
-          await this.loadFiles();
+          
+          // Refresh local files list
+          if (this.activeTab === 'files') {
+            await this.loadFiles();
         }
       } catch (error) {
         console.error('Import error:', error);
@@ -3062,6 +3198,99 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
         `${transfer.type === 'export' ? 'Exported' : 'Imported'} ${transfer.fileCount} files on ${this.formatDate(transfer.date)}`,
         transfer.status === 'completed' ? 'success' : 'error'
       );
+    },
+         async exportAsZip() {
+       this.isExporting = true;
+       this.exportStatus = 'Preparing to export...';
+       
+       try {
+         const filesToZip = this.selectedExportFiles.map(file => ({
+           name: file,
+           path: this.currentPath ? `${this.currentPath}/${file}` : file
+         }));
+
+         // Call Tauri command to create zip
+         await invoke('export_server_zip', {
+           serverId: this.serverId,
+           files: filesToZip,
+           serverName: this.server.name
+         });
+         
+         this.isExporting = false;
+         this.exportStatus = 'Export completed successfully!';
+         this.showExportDialog = false;
+         
+         window.showSuccess('Server Exported', 'Server files have been exported successfully!');
+       } catch (error) {
+         console.error('Error exporting server:', error);
+         this.isExporting = false;
+         this.exportStatus = 'Failed to export server: ' + error.message;
+         window.showError('Export Failed', error.toString());
+       }
+    },
+    async generateShareCode() {
+      this.isExporting = true;
+      this.exportStatus = 'Generating share code...';
+      
+      try {
+        const response = await fetch('/api/generate-share-code', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            serverId: this.serverId,
+            files: this.selectedExportFiles
+          })
+        });
+        
+        const data = await response.json();
+        this.shareCode = data.shareCode;
+        
+        this.isExporting = false;
+        this.exportStatus = 'Share code generated successfully!';
+        this.showExportDialog = false;
+      } catch (error) {
+        console.error('Error generating share code:', error);
+        this.isExporting = false;
+        this.exportStatus = 'Failed to generate share code: ' + error.message;
+      }
+    },
+    async importServer() {
+      this.isImporting = true;
+      this.exportStatus = 'Importing server...';
+      
+      try {
+        const response = await fetch('/api/import-server', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            importCode: this.importCode,
+            importFile: this.importFile
+          })
+        });
+        
+        const data = await response.json();
+        this.store.showToast(data.message, data.success ? 'success' : 'error');
+        
+        this.isImporting = false;
+        this.exportStatus = 'Server import completed!';
+        this.showImportDialog = false;
+      } catch (error) {
+        console.error('Error importing server:', error);
+        this.isImporting = false;
+        this.exportStatus = 'Failed to import server: ' + error.message;
+      }
+    },
+    copyShareCode() {
+      navigator.clipboard.writeText(this.shareCode).then(() => {
+        this.store.showToast('Share code copied to clipboard', 'success');
+      }).catch(err => {
+        console.error('Failed to copy share code:', err);
+        this.store.showToast('Failed to copy share code: ' + err.message, 'error');
+      });
     }
   }
 }
