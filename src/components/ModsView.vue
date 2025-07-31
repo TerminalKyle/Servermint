@@ -119,6 +119,18 @@
       </v-btn-toggle>
     </div>
 
+    <!-- Action Buttons -->
+    <div class="d-flex justify-end mb-4 gap-2">
+      <v-btn 
+        color="secondary" 
+        variant="flat" 
+        prepend-icon="mdi-package-variant"
+        @click="showModpackInstaller = true"
+      >
+        Install Modpack
+      </v-btn>
+    </div>
+
     <!-- Modpack/Mod List -->
     <v-window v-model="contentTab">
       <v-window-item value="available">
@@ -380,6 +392,15 @@
       </v-card>
     </v-dialog>
     
+    <!-- Modpack Installer Dialog -->
+    <v-dialog v-model="showModpackInstaller" max-width="900px" :persistent="modpackInstalling">
+      <ModpackInstaller 
+        @close="showModpackInstaller = false" 
+        @install-start="modpackInstalling = true"
+        @install-end="modpackInstalling = false"
+      />
+    </v-dialog>
+    
     <!-- Custom context menu -->
     <div 
       v-if="contextMenu.show" 
@@ -414,9 +435,13 @@
 <script>
 import { store } from '../store.js'
 import { invoke } from '@tauri-apps/api/core'
+import ModpackInstaller from './ModpackInstaller.vue'
 
 export default {
   name: 'ModsView',
+  components: {
+    ModpackInstaller
+  },
   data() {
     return {
       activeTab: 'modpacks', // Default to Modpacks tab
@@ -465,6 +490,10 @@ export default {
         y: 0,
         mod: null
       },
+      
+      // Modpack installer
+      showModpackInstaller: false,
+      modpackInstalling: false,
       
       // Sample data for repository
       modCategories: [

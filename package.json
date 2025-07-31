@@ -9,7 +9,10 @@
     "lint": "vue-cli-service lint",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:android:dev": "tauri android dev",
+    "tauri:android:build": "tauri android build",
+    "tauri:android:init": "tauri android init"
   },
   "dependencies": {
     "@mdi/font": "^7.4.47",

@@ -121,6 +121,77 @@
         </div>
       </div>
     </div>
+
+    <!-- Server Tabs -->
+    <div class="server-tabs-container mb-4" :class="{ 'collapsed': !serverTabsExpanded }">
+      <div class="d-flex align-center">
+        <v-tabs 
+          v-model="activeServerTab" 
+          color="primary" 
+          class="server-tabs"
+          @update:model-value="switchServer"
+          density="comfortable"
+        >
+          <v-tab 
+            v-for="serverItem in availableServers" 
+            :key="serverItem.id"
+            :value="serverItem.id"
+            class="server-tab"
+          >
+            <div class="d-flex align-center" style="position: relative;">
+              <v-avatar :size="serverTabsExpanded ? 20 : 24" :color="serverItem.icon ? undefined : 'primary'" rounded :class="serverTabsExpanded ? 'mr-2' : ''">
+                <v-img v-if="serverItem.icon" :src="serverItem.icon" alt="Server Icon"></v-img>
+                <v-icon v-else :size="serverTabsExpanded ? 14 : 16" color="white">mdi-leaf</v-icon>
+              </v-avatar>
+              <span class="server-tab-name" v-show="serverTabsExpanded">{{ serverItem.name }}</span>
+              <div 
+                class="status-indicator"
+                :class="getServerStatusColor(serverItem)"
+              ></div>
+            </div>
+          </v-tab>
+        </v-tabs>
+        
+        <v-spacer></v-spacer>
+        
+        <div class="server-tabs-actions" v-show="serverTabsExpanded">
+          <v-btn
+            icon
+            variant="text"
+            @click="refreshServers"
+            :loading="isRefreshingServers"
+            class="mr-2"
+            size="small"
+          >
+            <v-icon size="18">mdi-refresh</v-icon>
+            <v-tooltip activator="parent" location="bottom">Refresh Servers</v-tooltip>
+          </v-btn>
+          
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-plus"
+            @click="createNewServer"
+            size="small"
+            variant="flat"
+          >
+            Add Server
+          </v-btn>
+        </div>
+        
+        <v-btn
+          icon
+          variant="text"
+          @click="toggleServerTabs"
+          size="small"
+          class="expand-toggle-btn"
+        >
+          <v-icon size="18">{{ serverTabsExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
+          <v-tooltip activator="parent" location="bottom">
+            {{ serverTabsExpanded ? 'Collapse Server Tabs' : 'Expand Server Tabs' }}
+          </v-tooltip>
+        </v-btn>
+      </div>
+    </div>
     
     <!-- Management tabs -->
     <v-tabs v-model="activeTab" color="primary" class="mb-4">
@@ -356,6 +427,14 @@
           <div class="d-flex align-center mb-4">
             <h3 class="text-h6">Online Players: {{ players.length }}</h3>
             <v-spacer></v-spacer>
+
+
+            
+
+            
+
+            
+
             <v-text-field
               v-model="playerSearch"
               placeholder="Search players"
@@ -378,34 +457,122 @@
           
           <v-row v-else>
             <v-col v-for="(player, index) in filteredPlayers" :key="index" cols="12" sm="6" md="4" lg="3">
-              <v-card class="player-card">
-                <v-card-item>
-                  <template v-slot:prepend>
-                    <v-avatar class="mr-2">
-                      <v-img :src="`https://crafatar.com/avatars/${player.uuid}?overlay=true`" alt="Player Avatar"></v-img>
-                    </v-avatar>
-                  </template>
-                  <v-card-title>{{ player.name }}</v-card-title>
-                </v-card-item>
-                
-                <v-card-text>
-                  <div class="d-flex align-center mb-1">
-                    <v-icon size="small" class="mr-1">mdi-clock-outline</v-icon>
-                    <span class="text-caption">{{ formatPlaytime(player.playTime) }}</span>
+              <div class="player-card-modern">
+                <!-- Player Header with Avatar and Status -->
+                <div class="player-header">
+                  <div class="player-avatar-container">
+                    <div class="player-avatar">
+                      <v-img 
+                        :src="getPlayerAvatarUrl(player.name, player.uuid)" 
+                        :alt="`${player.name}'s Avatar`"
+                        @error="handleAvatarError"
+                        class="avatar-image"
+                      >
+                        <template v-slot:placeholder>
+                          <div class="avatar-placeholder">
+                            <v-icon size="32" color="#4ade80">mdi-account</v-icon>
+                          </div>
+                        </template>
+                      </v-img>
+                    </div>
+                    <div class="online-indicator"></div>
                   </div>
                   
-                  <div class="d-flex align-center">
-                    <v-icon size="small" class="mr-1">mdi-map-marker</v-icon>
-                    <span class="text-caption">{{ player.location }}</span>
+                  <div class="player-info">
+                    <h3 class="player-name">{{ player.name }}</h3>
+                    <div class="player-uuid" v-if="player.uuid">
+                      {{ player.uuid.substring(0, 8) }}...
+                    </div>
                   </div>
-                </v-card-text>
+                  
+                  <div class="player-status">
+                    <div class="status-badge online">
+                      <v-icon size="12" color="#4ade80">mdi-circle</v-icon>
+                      <span>Online</span>
+                    </div>
+                  </div>
+                </div>
                 
-                <v-card-actions>
-                  <v-btn variant="text" prepend-icon="mdi-message" size="small">Message</v-btn>
-                  <v-spacer></v-spacer>
-                  <v-btn variant="text" color="error" prepend-icon="mdi-exit-to-app" size="small">Kick</v-btn>
-                </v-card-actions>
-              </v-card>
+                <!-- Player Stats -->
+                <div class="player-stats">
+                  <div class="stat-item">
+                    <div class="stat-icon">
+                      <v-icon size="16" color="#4ade80">mdi-clock-outline</v-icon>
+                    </div>
+                    <div class="stat-content">
+                      <div class="stat-label">Playtime</div>
+                      <div class="stat-value">{{ formatPlaytime(player.playTime) }}</div>
+                    </div>
+                  </div>
+                  
+                  <div class="stat-item">
+                    <div class="stat-icon">
+                      <v-icon size="16" color="#4ade80">mdi-map-marker</v-icon>
+                    </div>
+                    <div class="stat-content">
+                      <div class="stat-label">Location</div>
+                      <div class="stat-value">{{ player.location || 'Unknown' }}</div>
+                    </div>
+                  </div>
+                  
+                  <div class="stat-item" v-if="player.joinTime">
+                    <div class="stat-icon">
+                      <v-icon size="16" color="#4ade80">mdi-login</v-icon>
+                    </div>
+                    <div class="stat-content">
+                      <div class="stat-label">Joined</div>
+                      <div class="stat-value">{{ formatJoinTime(player.joinTime) }}</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Player Badges -->
+                <div class="player-badges" v-if="player.legacy || player.demo">
+                  <v-chip 
+                    v-if="player.legacy" 
+                    size="small" 
+                    color="#f59e0b" 
+                    variant="flat"
+                    class="badge-chip"
+                  >
+                    <v-icon size="12" class="mr-1">mdi-star</v-icon>
+                    Legacy
+                  </v-chip>
+                  <v-chip 
+                    v-if="player.demo" 
+                    size="small" 
+                    color="#3b82f6" 
+                    variant="flat"
+                    class="badge-chip"
+                  >
+                    <v-icon size="12" class="mr-1">mdi-test-tube</v-icon>
+                    Demo
+                  </v-chip>
+                </div>
+                
+                <!-- Player Actions -->
+                <div class="player-actions">
+                  <v-btn 
+                    variant="outlined" 
+                    prepend-icon="mdi-message-text" 
+                    size="small"
+                    @click="messagePlayer(player.name)"
+                    class="action-btn message-btn"
+                  >
+                    Message
+                  </v-btn>
+                  <v-btn 
+                    variant="outlined" 
+                    color="#ef4444" 
+                    prepend-icon="mdi-exit-to-app" 
+                    size="small"
+                    @click="kickPlayer(player.name)"
+                    class="action-btn kick-btn"
+                  >
+                    Kick
+                  </v-btn>
+                </div>
+              </div>
             </v-col>
           </v-row>
         </div>
@@ -1278,6 +1445,7 @@ export default {
   data() {
     return {
       activeTab: 'console',
+      activeServerTab: null,
       server: null,
       consoleInput: '',
       currentPath: '',
@@ -1374,6 +1542,11 @@ export default {
       importModes: [
         { title: 'All Files', value: 'all' }
       ],
+      // Enhanced player tracking
+      enhancedPlayers: new Map(), // Map of player names to enhanced player data
+      playerCache: new Map(), // Cache for player UUIDs and skins
+      playerJoinTimes: new Map(), // Track when players joined
+      isRefreshingPlayers: false,
       selectedImportFiles: [],
       transferProgress: {
         show: false,
@@ -1394,7 +1567,9 @@ export default {
       isExporting: false,
       exportStatus: '',
       importCode: '',
-      importFile: null
+      importFile: null,
+      isRefreshingServers: false,
+      serverTabsExpanded: true
     }
   },
   computed: {
@@ -1403,6 +1578,9 @@ export default {
       console.log(`serverId computed property called, returning: ${id}`);
       console.log(`Route params:`, this.$route.params);
       return id;
+    },
+    availableServers() {
+      return this.store.servers || [];
     },
     isServerRunning() {
       return this.store.isServerRunning(this.serverId);
@@ -1486,7 +1664,17 @@ export default {
       try {
         const serverProcess = this.store.getServerProcess(this.serverId);
         if (serverProcess && serverProcess.players && Array.isArray(serverProcess.players)) {
-          return serverProcess.players;
+          // Use enhanced player data if available, otherwise fall back to basic data
+          const enhancedPlayerList = [];
+          
+          for (const player of serverProcess.players) {
+            if (player && player.name) {
+              const enhancedPlayer = this.enhancedPlayers.get(player.name) || player;
+              enhancedPlayerList.push(enhancedPlayer);
+            }
+          }
+          
+          return enhancedPlayerList;
         }
         return [];
       } catch (error) {
@@ -1526,6 +1714,12 @@ export default {
   },
   async created() {
     try {
+      // Load server tabs expanded preference
+      const savedExpanded = localStorage.getItem('servermint-server-tabs-expanded');
+      if (savedExpanded !== null) {
+        this.serverTabsExpanded = savedExpanded === 'true';
+      }
+      
       // Get the active tab from query params
       if (this.$route.query.tab) {
         this.activeTab = this.$route.query.tab;
@@ -1561,6 +1755,11 @@ export default {
       // Load files when switching to files tab or SFTP tab
       if ((newTab === 'files' || newTab === 'sftp') && this.files.length === 0) {
         this.loadFiles();
+      }
+      
+      // Refresh player data when switching to players tab
+      if (newTab === 'players' && this.isServerRunning) {
+        this.refreshPlayerData();
       }
       
       // Update query parameter
@@ -1600,6 +1799,11 @@ export default {
               }
             }
           });
+          
+          // Parse player messages when console output changes
+          if (this.activeTab === 'players') {
+            this.parsePlayerMessages();
+          }
         } catch (error) {
           console.error('Error in console output watcher:', error);
         }
@@ -1633,6 +1837,9 @@ export default {
     // Add event listeners for context menu
     document.addEventListener('click', this.hideContextMenu);
     document.addEventListener('keydown', this.handleKeyDown);
+    
+    // Listen for player join events from the store
+    window.addEventListener('player-joined', this.handlePlayerJoined);
   },
   methods: {
     async fetchServerDetails() {
@@ -1650,6 +1857,9 @@ export default {
         if (server) {
           this.server = server;
           
+          // Set active server tab
+          this.activeServerTab = this.serverId;
+          
           // Update document title
           document.title = `${server.name} - ServerMint`;
           
@@ -1657,6 +1867,27 @@ export default {
           this.serverSettings.serverName = server.name;
           this.serverSettings.memory = server.memoryAllocation || 4;
           this.serverSettings.autoStart = server.autoStart || false;
+          
+          // Check actual server status
+          try {
+            const actualStatus = await this.store.checkServerStatus(this.serverId);
+            console.log(`Actual server status: ${actualStatus}`);
+            
+            // Update server status if it differs from stored status
+            if (actualStatus !== server.status) {
+              server.status = actualStatus;
+              console.log(`Updated server status from ${server.status} to ${actualStatus}`);
+            }
+            
+            // If server is actually running, start polling
+            if (actualStatus === 'online' || actualStatus === 'running') {
+              console.log('Server is running, starting output polling...');
+              this.store.startOutputPolling(this.serverId);
+              this.startMetricsPolling();
+            }
+          } catch (statusError) {
+            console.warn('Could not check server status:', statusError);
+          }
         } else {
           console.error(`Server with ID ${this.serverId} not found after loading servers`);
           // Server not found, go back to servers list
@@ -1671,10 +1902,108 @@ export default {
     goBack() {
       this.$router.push({ name: 'Servers' });
     },
+    
+    async switchServer(serverId) {
+      if (serverId === this.serverId) return;
+      
+      try {
+        // Navigate to the new server
+        this.$router.push({
+          name: 'ServerManagement',
+          params: { serverId: serverId },
+          query: { tab: this.activeTab }
+        });
+      } catch (error) {
+        console.error('Error switching server:', error);
+      }
+    },
+    
+    async refreshServers() {
+      this.isRefreshingServers = true;
+      try {
+        await this.store.loadServers();
+        // Refresh current server details
+        await this.fetchServerDetails();
+      } catch (error) {
+        console.error('Error refreshing servers:', error);
+      } finally {
+        this.isRefreshingServers = false;
+      }
+    },
+    
+    createNewServer() {
+      // Navigate to servers view to create a new server
+      this.$router.push({ name: 'Servers' });
+    },
+    
+    toggleServerTabs() {
+      this.serverTabsExpanded = !this.serverTabsExpanded;
+      // Save preference to localStorage
+      localStorage.setItem('servermint-server-tabs-expanded', this.serverTabsExpanded.toString());
+    },
+    
+    getServerStatusText(server) {
+      if (!server) return 'Unknown';
+      
+      if (server.status === 'installing') {
+        return 'Installing';
+      } else if (server.status === 'starting') {
+        return 'Starting';
+      } else if (server.status === 'stopping') {
+        return 'Stopping';
+      } else if (server.status === 'online') {
+        return 'Online';
+      } else if (server.status === 'offline') {
+        return 'Offline';
+      } else if (server.status === 'failed') {
+        return 'Failed';
+      }
+      return server.status.charAt(0).toUpperCase() + server.status.slice(1);
+    },
+    
+    getServerStatusColor(server) {
+      if (!server) return 'grey';
+      
+      const status = server.status;
+      if (status === 'starting' || status === 'stopping') return 'warning';
+      if (status === 'online') return 'success';
+      if (status === 'offline') return 'error';
+      if (status === 'installing') return 'info';
+      if (status === 'failed') return 'error';
+      
+      return 'grey';
+    },
     async startServer() {
       if (this.isServerRunning || this.isStarting) return;
       
       try {
+        // Check current server status first
+        const currentStatus = await this.store.checkServerStatus(this.serverId);
+        console.log(`Current server status: ${currentStatus}`);
+        
+        // If server is already online, just connect to it
+        if (currentStatus === 'online' || currentStatus === 'running') {
+          console.log('Server is already running, connecting to existing instance...');
+          
+          if (this.server) {
+            this.server.status = 'online';
+          }
+          
+          // Start metrics polling and set start time
+          this.serverMetrics.startTime = Date.now();
+          this.startMetricsPolling();
+          
+          // Refresh connection info
+          this.loadServerConnectionInfo();
+          
+          // Show success message
+          if (window.showSuccess) {
+            window.showSuccess('Server Connected!', `"${this.server?.name}" is already running and has been connected.`);
+          }
+          
+          return;
+        }
+        
         // Update server status to starting
         if (this.server) {
           this.server.status = 'starting';
@@ -1684,7 +2013,13 @@ export default {
         
         if (!result.success) {
           console.error('Failed to start server:', result.error);
-          alert(`Failed to start server: ${result.error}`);
+          
+          // Show error message
+          if (window.showError) {
+            window.showError('Server Start Failed', result.error);
+          } else {
+            alert(`Failed to start server: ${result.error}`);
+          }
           
           // Reset status on failure
           if (this.server) {
@@ -1696,6 +2031,10 @@ export default {
             this.server.status = 'online';
           }
           
+          // Start output polling for console
+          console.log('Starting output polling after successful server start...');
+          this.store.startOutputPolling(this.serverId);
+          
           // Start metrics polling and set start time
           this.serverMetrics.startTime = Date.now();
           this.startMetricsPolling();
@@ -1705,7 +2044,13 @@ export default {
         }
       } catch (error) {
         console.error('Error starting server:', error);
-        alert(`Error starting server: ${error.message || 'Unknown error'}`);
+        
+        // Show error message
+        if (window.showError) {
+          window.showError('Server Start Failed', error.message || 'Unknown error');
+        } else {
+          alert(`Error starting server: ${error.message || 'Unknown error'}`);
+        }
         
         // Reset status on error
         if (this.server) {
@@ -1752,20 +2097,34 @@ export default {
       }
     },
     async restartServer() {
-      if (!this.isServerRunning || this.isStarting || this.isStopping) return;
+      if (this.isStarting || this.isStopping) return;
       
       try {
-        // Stop the server
-        await this.store.stopServer(this.serverId);
+        console.log('Restarting server...');
         
-        // Wait for the server to stop
-        setTimeout(async () => {
-          // Start the server
-          await this.store.startServer(this.serverId);
-        }, 2000);
+        // Stop the server if it's running
+        if (this.isServerRunning) {
+          console.log('Stopping server first...');
+          await this.store.stopServer(this.serverId);
+          
+          // Wait for the server to stop
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        
+        // Start the server
+        console.log('Starting server...');
+        await this.store.startServer(this.serverId);
+        
+        console.log('Server restart completed');
       } catch (error) {
         console.error('Error restarting server:', error);
-        alert(`Error restarting server: ${error.message || 'Unknown error'}`);
+        
+        // Show error message
+        if (window.showError) {
+          window.showError('Server Restart Failed', error.message || 'Unknown error');
+        } else {
+          alert(`Error restarting server: ${error.message || 'Unknown error'}`);
+        }
       }
     },
     async openServerFolder() {
@@ -3291,6 +3650,389 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
         console.error('Failed to copy share code:', err);
         this.store.showToast('Failed to copy share code: ' + err.message, 'error');
       });
+    },
+
+    // Enhanced Player Methods
+    async refreshPlayerData() {
+      if (this.isRefreshingPlayers) return;
+      
+      this.isRefreshingPlayers = true;
+      
+      try {
+        // Use store's player parsing first
+        this.store.refreshPlayerData(this.serverId);
+        
+        // Parse console output for player join/leave messages
+        await this.parsePlayerMessages();
+        
+        // Fetch enhanced data for all online players
+        const serverProcess = this.store.getServerProcess(this.serverId);
+        if (serverProcess && serverProcess.players) {
+          for (const player of serverProcess.players) {
+            if (player && player.name) {
+              await this.enhancePlayerData(player.name);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error refreshing player data:', error);
+      } finally {
+        this.isRefreshingPlayers = false;
+      }
+    },
+
+    async parsePlayerMessages() {
+      try {
+        const consoleOutput = this.consoleOutput;
+        if (!consoleOutput || !Array.isArray(consoleOutput)) return;
+
+        for (const line of consoleOutput) {
+          if (!line || typeof line !== 'string') continue;
+
+          // Parse player join messages
+          const joinMatch = line.match(/\[INFO\] (\w+) joined the game/);
+          if (joinMatch) {
+            const playerName = joinMatch[1];
+            this.playerJoinTimes.set(playerName, Date.now());
+            await this.enhancePlayerData(playerName);
+            continue;
+          }
+
+          // Parse player leave messages
+          const leaveMatch = line.match(/\[INFO\] (\w+) left the game/);
+          if (leaveMatch) {
+            const playerName = leaveMatch[1];
+            this.playerJoinTimes.delete(playerName);
+            // Keep enhanced data in cache for a while
+            continue;
+          }
+
+          // Parse player death messages
+          const deathMatch = line.match(/\[INFO\] (\w+) was slain by (\w+)/);
+          if (deathMatch) {
+            const victim = deathMatch[1];
+            const killer = deathMatch[2];
+            await this.enhancePlayerData(victim);
+            await this.enhancePlayerData(killer);
+            continue;
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing player messages:', error);
+      }
+    },
+
+    async enhancePlayerData(playerName) {
+      try {
+        // Check if we already have enhanced data for this player
+        if (this.enhancedPlayers.has(playerName)) {
+          return;
+        }
+
+        // Get or fetch player UUID
+        let playerUUID = await this.getPlayerUUID(playerName);
+        if (!playerUUID) {
+          console.warn(`Could not get UUID for player: ${playerName}`);
+          return;
+        }
+
+        // Get player skin and additional data
+        const playerData = await this.getPlayerProfile(playerName, playerUUID);
+        
+        // Calculate playtime
+        const joinTime = this.playerJoinTimes.get(playerName);
+        const playTime = joinTime ? Math.floor((Date.now() - joinTime) / 1000) : 0;
+
+        // Create enhanced player object
+        const enhancedPlayer = {
+          name: playerName,
+          uuid: playerUUID,
+          playTime: playTime,
+          location: 'Unknown', // This would need to be tracked separately
+          skin: playerData.skin,
+          cape: playerData.cape,
+          isOnline: true,
+          lastSeen: Date.now(),
+          joinTime: joinTime,
+          // Additional data from Mojang API
+          legacy: playerData.legacy || false,
+          demo: playerData.demo || false
+        };
+
+        // Store enhanced player data
+        this.enhancedPlayers.set(playerName, enhancedPlayer);
+        
+        console.log(`Enhanced player data for ${playerName}:`, enhancedPlayer);
+      } catch (error) {
+        console.error(`Error enhancing player data for ${playerName}:`, error);
+      }
+    },
+
+    async getPlayerUUID(playerName) {
+      try {
+        // Check cache first
+        if (this.playerCache.has(playerName)) {
+          const cached = this.playerCache.get(playerName);
+          if (cached.uuid && Date.now() - cached.timestamp < 3600000) { // 1 hour cache
+            return cached.uuid;
+          }
+        }
+
+        // Fetch from Mojang API via Tauri backend
+        const uuid = await this.store.tauriAPI.invoke('get_player_uuid', { playerName });
+        
+        if (uuid) {
+          // Cache the result
+          this.playerCache.set(playerName, {
+            uuid: uuid,
+            timestamp: Date.now()
+          });
+          
+          return uuid;
+        } else {
+          console.warn(`Player not found: ${playerName}`);
+          return null;
+        }
+      } catch (error) {
+        console.error(`Error getting UUID for ${playerName}:`, error);
+        return null;
+      }
+    },
+
+    async getPlayerProfile(playerName, uuid) {
+      try {
+        // Check cache first
+        const cacheKey = `${playerName}_${uuid}`;
+        if (this.playerCache.has(cacheKey)) {
+          const cached = this.playerCache.get(cacheKey);
+          if (Date.now() - cached.timestamp < 3600000) { // 1 hour cache
+            return cached.data;
+          }
+        }
+
+        // Fetch from Mojang API via Tauri backend
+        const profileData = await this.store.tauriAPI.invoke('get_player_profile', { 
+          playerName, 
+          uuid 
+        });
+        
+        if (profileData) {
+          // Cache the result
+          this.playerCache.set(cacheKey, {
+            data: profileData,
+            timestamp: Date.now()
+          });
+
+          return profileData;
+        } else {
+          console.error(`Error fetching profile for ${playerName}`);
+          return {
+            name: playerName,
+            uuid: uuid,
+            skin: null,
+            cape: null,
+            legacy: false,
+            demo: false
+          };
+        }
+      } catch (error) {
+        console.error(`Error getting profile for ${playerName}:`, error);
+        return {
+          name: playerName,
+          uuid: uuid,
+          skin: null,
+          cape: null,
+          legacy: false,
+          demo: false
+        };
+      }
+    },
+
+    getPlayerAvatarUrl(playerName, uuid) {
+      if (uuid) {
+        // Use Crafatar API for high-quality avatars
+        return `https://crafatar.com/avatars/${uuid}?overlay=true&size=64`;
+      } else {
+        // Fallback to a default avatar
+        return `https://crafatar.com/avatars/00000000-0000-0000-0000-000000000000?overlay=true&size=64`;
+      }
+    },
+
+    getPlayerSkinUrl(playerName, uuid) {
+      if (uuid) {
+        // Use Crafatar API for full skin renders
+        return `https://crafatar.com/renders/body/${uuid}?overlay=true&scale=2`;
+      } else {
+        return null;
+      }
+    },
+
+    // Player action methods
+    async messagePlayer(playerName) {
+      const message = prompt(`Enter message to send to ${playerName}:`);
+      if (message && message.trim()) {
+        try {
+          await this.store.sendCommand(this.serverId, `tell ${playerName} ${message.trim()}`);
+          this.store.showToast(`Message sent to ${playerName}`, 'success');
+        } catch (error) {
+          console.error('Error sending message:', error);
+          this.store.showToast(`Failed to send message: ${error.message}`, 'error');
+        }
+      }
+    },
+
+    async kickPlayer(playerName) {
+      const reason = prompt(`Enter kick reason for ${playerName} (optional):`);
+      const command = reason && reason.trim() 
+        ? `kick ${playerName} ${reason.trim()}`
+        : `kick ${playerName}`;
+      
+      try {
+        await this.store.sendCommand(this.serverId, command);
+        this.store.showToast(`${playerName} has been kicked`, 'success');
+      } catch (error) {
+        console.error('Error kicking player:', error);
+        this.store.showToast(`Failed to kick ${playerName}: ${error.message}`, 'error');
+      }
+    },
+
+    handleAvatarError(event) {
+      // Handle avatar loading errors
+      console.warn('Avatar failed to load:', event);
+      // The placeholder icon will be shown automatically
+    },
+
+    formatJoinTime(timestamp) {
+      if (!timestamp) return 'Unknown';
+      
+      const now = Date.now();
+      const diff = now - timestamp;
+      const minutes = Math.floor(diff / 60000);
+      
+      if (minutes < 1) return 'Just joined';
+      if (minutes < 60) return `${minutes}m ago`;
+      
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ${minutes % 60}m ago`;
+      
+      const days = Math.floor(hours / 24);
+      return `${days}d ${hours % 24}h ago`;
+    },
+
+    debugPlayerDetection() {
+      console.log('=== Player Detection Debug ===');
+      
+      const serverProcess = this.store.getServerProcess(this.serverId);
+      console.log('Server Process:', serverProcess);
+      
+      if (serverProcess) {
+        console.log('Players array:', serverProcess.players);
+        console.log('Output length:', serverProcess.output?.length);
+        console.log('Last 5 output lines:', serverProcess.output?.slice(-5));
+      }
+      
+      console.log('Enhanced Players Map:', this.enhancedPlayers);
+      console.log('Player Cache:', this.playerCache);
+      console.log('Player Join Times:', this.playerJoinTimes);
+      
+      // Check for player join messages in console
+      const consoleOutput = this.consoleOutput;
+      if (consoleOutput && Array.isArray(consoleOutput)) {
+        const joinMessages = consoleOutput.filter(line => 
+          line && typeof line === 'string' && line.includes('joined the game')
+        );
+        console.log('Join messages found:', joinMessages);
+        
+        const chatMessages = consoleOutput.filter(line => 
+          line && typeof line === 'string' && line.includes('<') && line.includes('>')
+        );
+        console.log('Chat messages found:', chatMessages);
+      }
+      
+      // Manually trigger player parsing
+      console.log('Manually triggering player parsing...');
+      this.store.refreshPlayerData(this.serverId);
+      this.parsePlayerMessages();
+      
+      console.log('=== End Debug ===');
+    },
+    
+    debugConsoleOutput() {
+      console.log('=== Console Output Debug ===');
+      console.log('Server ID:', this.serverId);
+      console.log('Server Process:', this.store.getServerProcess(this.serverId));
+      console.log('Console Output Length:', this.consoleOutput ? this.consoleOutput.length : 0);
+      console.log('Filtered Console Output Length:', this.filteredConsoleOutput ? this.filteredConsoleOutput.length : 0);
+      console.log('First 5 lines of console output:', this.consoleOutput ? this.consoleOutput.slice(0, 5) : []);
+      console.log('Last 5 lines of console output:', this.consoleOutput ? this.consoleOutput.slice(-5) : []);
+      console.log('Is Output Polling Active:', this.store.outputPollingIntervals && this.store.outputPollingIntervals[this.serverId]);
+      
+      // Manually trigger output polling
+      console.log('Manually starting output polling...');
+      this.store.startOutputPolling(this.serverId);
+    },
+    
+    forceRefreshPlayers() {
+      console.log('=== Force Refresh Players ===');
+      console.log('Current console output:', this.consoleOutput);
+      
+      // Manually trigger player parsing
+      this.store.refreshPlayerData(this.serverId);
+      this.parsePlayerMessages();
+      
+      // Force a reactive update
+      this.$forceUpdate();
+      
+      console.log('Players after refresh:', this.players);
+    },
+    
+    handlePlayerJoined(event) {
+      try {
+        const { serverId, playerName } = event.detail;
+        
+        // Only process events for this server
+        if (serverId === this.serverId) {
+          console.log(`[Player Event] Player joined: ${playerName}`);
+          
+          // Set join time
+          this.playerJoinTimes.set(playerName, Date.now());
+          
+          // Fetch enhanced player data
+          this.enhancePlayerData(playerName);
+        }
+      } catch (error) {
+        console.error('[Player Event] Error handling player joined event:', error);
+      }
+    },
+    
+    beforeUnmount() {
+      // Clean up event listeners
+      window.removeEventListener('player-joined', this.handlePlayerJoined);
+      document.removeEventListener('click', this.hideContextMenu);
+      document.removeEventListener('keydown', this.handleKeyDown);
+    },
+    
+    async fetchAllPlayerSkins() {
+      console.log('=== Fetching All Player Skins ===');
+      
+      const serverProcess = this.store.getServerProcess(this.serverId);
+      if (!serverProcess || !serverProcess.players) {
+        console.log('No players to fetch skins for');
+        return;
+      }
+      
+      console.log(`Fetching skins for ${serverProcess.players.length} players:`, serverProcess.players.map(p => p.name));
+      
+      // Fetch enhanced data for all current players
+      for (const player of serverProcess.players) {
+        if (player.name) {
+          console.log(`Fetching skin for: ${player.name}`);
+          await this.enhancePlayerData(player.name);
+        }
+      }
+      
+      console.log('Skin fetching completed');
+      console.log('Enhanced players:', this.enhancedPlayers);
     }
   }
 }
@@ -3932,5 +4674,386 @@ ${this.serverMetrics.tps < 18 ? '⚠️ Performance issues detected! Consider re
 }
 .delete-item {
   color: #ef4444;
+}
+
+/* Player Card - Match Modpack Dialog Design */
+.player-card-modern {
+  background-color: rgba(26, 26, 26, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.player-card-modern:hover {
+  border-color: rgba(74, 222, 128, 0.2);
+  background-color: rgba(42, 42, 42, 0.95);
+}
+
+/* Player Header */
+.player-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.player-avatar-container {
+  position: relative;
+  margin-right: 12px;
+}
+
+.player-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(42, 42, 42, 0.95);
+  position: relative;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(42, 42, 42, 0.95);
+}
+
+.online-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  background: #4ade80;
+  border-radius: 50%;
+  border: 2px solid rgba(26, 26, 26, 0.95);
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+}
+
+.player-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.player-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+  line-height: 1.2;
+}
+
+.player-uuid {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.5px;
+}
+
+.player-status {
+  margin-left: auto;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.online {
+  background-color: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+/* Player Stats */
+.player-stats {
+  margin-bottom: 16px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background-color: rgba(42, 42, 42, 0.8);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+  background-color: rgba(42, 42, 42, 0.95);
+  border-color: rgba(74, 222, 128, 0.2);
+}
+
+.stat-icon {
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background-color: rgba(74, 222, 128, 0.15);
+}
+
+.stat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.stat-value {
+  font-size: 13px;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* Player Badges */
+.player-badges {
+  margin-bottom: 16px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge-chip {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 8px;
+  padding: 4px 8px;
+  height: auto;
+}
+
+/* Player Actions */
+.player-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  flex: 1;
+  height: 36px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.message-btn {
+  background-color: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.message-btn:hover {
+  background-color: rgba(74, 222, 128, 0.2);
+  border-color: rgba(74, 222, 128, 0.4);
+}
+
+.kick-btn {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.kick-btn:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.player-search {
+  max-width: 300px;
+}
+
+.players-container {
+  min-height: 400px;
+}
+
+/* Server Tabs Styling */
+.server-tabs-container {
+  background-color: rgba(20, 20, 20, 0.6);
+  border-radius: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.server-tabs-container.collapsed {
+  padding: 6px 10px;
+  max-height: 52px;
+  background-color: rgba(15, 15, 15, 0.8);
+}
+
+.server-tabs-container.collapsed .server-tabs {
+  opacity: 0.9;
+}
+
+.server-tabs-container.collapsed .server-tabs :deep(.v-tab) {
+  min-width: 48px;
+  max-width: 48px;
+  height: 40px;
+  padding: 0;
+  margin-right: 4px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.server-tabs-container.collapsed .server-tabs :deep(.v-tab:hover) {
+  background-color: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.2);
+}
+
+.server-tabs-container.collapsed .server-tabs :deep(.v-tab--selected) {
+  background-color: rgba(74, 222, 128, 0.2);
+  border-color: rgba(74, 222, 128, 0.4);
+  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.2);
+}
+
+.server-tabs-container.collapsed .server-tabs :deep(.v-tab__content) {
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+}
+
+.server-tabs-container.collapsed .server-tab-name {
+  display: none;
+}
+
+.server-tabs-container.collapsed .status-indicator {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  margin: 0;
+}
+
+.server-tabs-container.collapsed .server-tabs :deep(.v-avatar) {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+}
+
+.server-tabs {
+  background-color: transparent;
+}
+
+.server-tabs :deep(.v-tab) {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  margin-right: 6px;
+  min-width: 160px;
+  height: 36px;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.server-tabs :deep(.v-tab:hover) {
+  background-color: rgba(74, 222, 128, 0.08);
+  border-color: rgba(74, 222, 128, 0.2);
+}
+
+.server-tabs :deep(.v-tab--selected) {
+  background-color: rgba(74, 222, 128, 0.15);
+  border-color: rgba(74, 222, 128, 0.4);
+  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.2);
+}
+
+.server-tabs :deep(.v-tab--selected)::after {
+  display: none;
+}
+
+.server-tab-name {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+}
+
+.server-tabs :deep(.v-tab__content) {
+  padding: 0 10px;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 8px;
+  transition: all 0.2s ease;
+}
+
+.status-indicator.success {
+  background-color: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.4);
+}
+
+.status-indicator.error {
+  background-color: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+.status-indicator.warning {
+  background-color: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+}
+
+.status-indicator.info {
+  background-color: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.4);
+}
+
+.status-indicator.grey {
+  background-color: #6b7280;
+  box-shadow: 0 0 6px rgba(107, 114, 128, 0.4);
+}
+
+.expand-toggle-btn {
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease;
+}
+
+.expand-toggle-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.server-tabs-actions {
+  display: flex;
+  align-items: center;
+  transition: all 0.3s ease;
 }
 </style> 

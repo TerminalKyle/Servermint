@@ -87,6 +87,12 @@
         </v-btn>
       </v-btn-toggle>
       
+      <GuideButton 
+        @restart-guide="restartGuide"
+        class="mr-2"
+        tooltip="Show Getting Started Guide"
+      />
+      
       <v-btn
         icon
         variant="text"
@@ -278,13 +284,15 @@
 import CreateServerDialog from './CreateServerDialog.vue';
 import { store } from '../store.js'
 import ConfirmDialog from './ConfirmDialog.vue';
+import GuideButton from './GuideButton.vue';
 import { invoke } from '@tauri-apps/api/core'
 
 export default {
   name: 'ServersView',
   components: {
     CreateServerDialog,
-    ConfirmDialog
+    ConfirmDialog,
+    GuideButton
   },
   data() {
     return {
@@ -561,6 +569,11 @@ export default {
         this.serverToDelete = this.contextMenu.server;
       }
       this.hideContextMenu();
+    },
+    
+    restartGuide() {
+      // Emit event to parent to restart guide
+      this.$emit('restart-guide');
     },
     
     async confirmDeleteServer() {

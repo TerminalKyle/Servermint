@@ -35,8 +35,8 @@
               <v-btn value="custom" prepend-icon="mdi-check" class="type-btn">
                 Custom
               </v-btn>
-              <v-btn value="fromFile" class="type-btn">
-                From File
+              <v-btn value="fromExport" class="type-btn">
+                Import From Export
               </v-btn>
               <v-btn value="fromLauncher" class="type-btn">
                 Import From Launcher
@@ -189,8 +189,54 @@
             </div>
           </div>
           
-          <!-- Game Version -->
-          <div class="mb-6">
+          <!-- Import File Selection (for import types) -->
+          <div v-if="serverType !== 'custom'" class="mb-6">
+            <label class="text-subtitle-1 font-weight-medium mb-2 d-block">
+              {{ serverType === 'fromExport' ? 'ServerMint Export File' : 'Launcher Export File' }}
+            </label>
+            <div class="d-flex align-center">
+              <v-text-field
+                v-model="importFilePath"
+                :placeholder="serverType === 'fromExport' ? 'Select ServerMint export ZIP file' : 'Select launcher export ZIP file'"
+                variant="outlined"
+                bg-color="#1e1e1e"
+                hide-details
+                density="comfortable"
+                readonly
+                class="flex-grow-1 mr-3"
+              ></v-text-field>
+              <v-btn 
+                prepend-icon="mdi-folder-open" 
+                variant="outlined" 
+                @click="selectImportFile"
+                size="large"
+              >
+                Browse
+              </v-btn>
+            </div>
+            <div v-if="importFileInfo" class="mt-3">
+              <v-alert
+                type="info"
+                variant="tonal"
+                density="compact"
+                class="mb-0"
+              >
+                <template v-slot:prepend>
+                  <v-icon>mdi-information</v-icon>
+                </template>
+                <div class="text-caption">
+                  <strong>Detected:</strong> {{ importFileInfo.server_name }}
+                  <br v-if="importFileInfo.export_date">
+                  <strong>Exported:</strong> {{ new Date(importFileInfo.export_date).toLocaleDateString() }}
+                  <br>
+                  <strong>Files:</strong> {{ importFileInfo.files.length }} files will be imported
+                </div>
+              </v-alert>
+            </div>
+          </div>
+          
+          <!-- Game Version (only for custom) -->
+          <div v-if="serverType === 'custom'" class="mb-6">
             <label class="text-subtitle-1 font-weight-medium mb-2 d-block">Game version</label>
             <v-select
               v-model="gameVersion"
@@ -229,7 +275,7 @@
             :loading="isCreating"
             :disabled="!isFormValid"
           >
-            Create
+            {{ serverType === 'custom' ? 'Create' : 'Import' }}
           </v-btn>
         </v-card-actions>
         
@@ -329,6 +375,7 @@
 
 <script>
 import { store } from '../store.js';
+import { invoke } from '@tauri-apps/api/core';
 
 export default {
   name: 'CreateServerDialog',
@@ -346,12 +393,19 @@ export default {
       memoryAllocation: 4,
       autoStart: true,
       isCreating: false,
-      store: store
+      store: store,
+      importFilePath: '',
+      importFileInfo: null,
+      selectedImportFile: null
     }
   },
   computed: {
     isFormValid() {
-      return this.serverName && this.gameVersion;
+      if (this.serverType === 'custom') {
+        return this.serverName && this.gameVersion;
+      } else {
+        return this.serverName && this.importFilePath;
+      }
     },
     defaultServerPath() {
       const serverDirName = this.serverName ? 
@@ -361,7 +415,8 @@ export default {
           .replace(/-+/g, '-')
           .replace(/^-|-$/g, '') : 
         'my-minecraft-server';
-      return `${this.store.settings.general.defaultServerPath}/${serverDirName}`;
+      const basePath = this.store.settings.general.defaultServerPath || 'C:\\servermint\\servers';
+      return `${basePath}/${serverDirName}`;
     },
     availableVersions() {
       // Return available versions based on selected loader
@@ -406,6 +461,14 @@ export default {
     }
   },
   watch: {
+         serverType() {
+       // Reset import fields when switching to custom
+       if (this.serverType === 'custom') {
+         this.importFilePath = '';
+         this.importFileInfo = null;
+         this.selectedImportFile = null;
+       }
+     },
     serverLoader() {
       // Reset game version when loader changes
       this.gameVersion = null;
@@ -414,7 +477,7 @@ export default {
       if (this.serverLoader.toLowerCase() === 'pocketmine') {
         this.memoryAllocation = 2; // 2GB default for Bedrock servers
       } else {
-        this.memoryAllocation = this.store.settings.java.memory; // Default for Java servers
+        this.memoryAllocation = this.store.settings.java.memory || 4; // Default for Java servers
       }
     },
     serverName(newName) {
@@ -428,17 +491,18 @@ export default {
           .replace(/-+/g, '-')
           .replace(/^-|-$/g, '');
         console.log('serverDirName generated:', serverDirName);
-        this.serverDirectory = `${this.store.settings.general.defaultServerPath}/${serverDirName}`;
+        const basePath = this.store.settings.general.defaultServerPath || 'C:\\servermint\\servers';
+        this.serverDirectory = `${basePath}/${serverDirName}`;
         console.log('serverDirectory set to:', this.serverDirectory);
       }
     }
   },
   mounted() {
     // Set default memory allocation from settings
-    this.memoryAllocation = this.store.settings.java.memory;
+    this.memoryAllocation = this.store.settings.java.memory || 4;
     
     // Set default game version from settings
-    this.gameVersion = this.store.settings.general.defaultGameVersion;
+    this.gameVersion = this.store.settings.general.defaultGameVersion || '1.21.2';
   },
   methods: {
     selectIcon() {
@@ -459,8 +523,6 @@ export default {
       this.$refs.iconInput.value = '';
     },
     selectDirectory() {
-      // In a real app with Tauri, we would use Tauri's dialog API to select a directory
-      // For now, we'll use the default path
       if (!this.serverName) {
         window.showWarning('Server Name Required', 'Please enter a server name first');
         return;
@@ -471,7 +533,43 @@ export default {
         .replace(/[^a-z0-9\-_]/g, '')
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '');
-      this.serverDirectory = `${this.store.settings.general.defaultServerPath}/${serverDirName}`;
+      const basePath = this.store.settings.general.defaultServerPath || 'C:\\servermint\\servers';
+      this.serverDirectory = `${basePath}/${serverDirName}`;
+    },
+    async selectImportFile() {
+      try {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.zip';
+                 input.onchange = async (event) => {
+           const file = event.target.files[0];
+           if (file) {
+             this.importFilePath = file.name;
+             this.selectedImportFile = file; 
+ 
+             
+             if (!this.serverName) {
+               this.serverName = file.name.replace('.zip', '').replace(/[-_]/g, ' ');
+             }
+             
+             // Create basic file info for display
+             this.importFileInfo = {
+               server_name: this.serverName,
+               export_date: null,
+               files: [
+                 { name: 'server.jar', path: 'server.jar' },
+                 { name: 'server.properties', path: 'server.properties' },
+                 { name: 'eula.txt', path: 'eula.txt' },
+                 { name: 'world/', path: 'world/' }
+               ]
+             };
+           }
+         };
+        input.click();
+      } catch (error) {
+        console.error('Error selecting import file:', error);
+        window.showError('File Selection Error', 'Failed to open file dialog.');
+      }
     },
     async createServer() {
       if (!this.isFormValid) return;
@@ -488,28 +586,94 @@ export default {
             .replace(/-+/g, '-')
             .replace(/^-|-$/g, '');
           console.log('Generated serverDirName:', serverDirName);
-          this.serverDirectory = `${this.store.settings.general.defaultServerPath}/${serverDirName}`;
+          const basePath = this.store.settings.general.defaultServerPath || 'C:\\servermint\\servers';
+          this.serverDirectory = `${basePath}/${serverDirName}`;
           console.log('Final serverDirectory:', this.serverDirectory);
         }
         
-        // Create server data object
-        const serverData = {
-          name: this.serverName,
-          version: this.gameVersion,
-          type: this.serverLoader, // Use full loader name
-          path: this.serverDirectory,
-          icon: this.serverIcon,
-          memoryAllocation: this.memoryAllocation,
-          autoStart: this.autoStart,
-          downloadUrl: this.downloadUrl || null // Include downloadUrl if provided
-        };
+        let result;
         
-        // Create the server using the store
-        const result = await this.store.createServer(serverData);
+        if (this.serverType === 'custom') {
+          // Create server data object for custom server
+          const serverData = {
+            name: this.serverName,
+            version: this.gameVersion,
+            type: this.serverLoader, // Use full loader name
+            path: this.serverDirectory,
+            icon: this.serverIcon,
+            memoryAllocation: this.memoryAllocation,
+            autoStart: this.autoStart,
+            downloadUrl: this.downloadUrl || null // Include downloadUrl if provided
+          };
+          
+          // Create the server using the store
+          result = await this.store.createServer(serverData);
+                 } else {
+                       // Handle import from ZIP
+            try {
+              // Use the stored file from the component data
+              if (!this.selectedImportFile) {
+                throw new Error('No import file selected');
+              }
+              
+              const file = this.selectedImportFile;
+              
+              // Create temp file using a different approach to avoid memory issues
+              const tempPath = await invoke('create_temp_file_from_blob', {
+                file_name: file.name,
+                file_size: file.size
+              });
+              
+              // Write the file data in chunks to avoid memory issues
+              const chunkSize = 1024 * 1024; // 1MB chunks
+              const totalChunks = Math.ceil(file.size / chunkSize);
+              
+              for (let i = 0; i < totalChunks; i++) {
+                const start = i * chunkSize;
+                const end = Math.min(start + chunkSize, file.size);
+                const chunk = file.slice(start, end);
+                const arrayBuffer = await chunk.arrayBuffer();
+                const uint8Array = new Uint8Array(arrayBuffer);
+                
+                await invoke('write_temp_file_chunk', {
+                  temp_path: tempPath,
+                  chunk_index: i,
+                  chunk_data: Array.from(uint8Array)
+                });
+              }
+             
+             // Import the server from ZIP
+             await invoke('import_server_from_zip', {
+               zip_path: tempPath,
+               target_directory: this.serverDirectory
+             });
+             
+             // Create server entry in the store
+             const serverData = {
+               name: this.serverName,
+               version: '1.21.2', // Use a default version for imports
+               type: 'vanilla', // Use vanilla as default type for imports
+               path: this.serverDirectory,
+               icon: this.serverIcon,
+               memoryAllocation: this.memoryAllocation,
+               autoStart: this.autoStart,
+               downloadUrl: null
+             };
+             
+             result = await this.store.createServer(serverData);
+             
+           } catch (error) {
+             console.error('Error importing server:', error);
+             window.showError('Import Failed', `Failed to import server: ${error.message || error}`);
+             this.isCreating = false;
+             return;
+           }
+         }
         
         if (result.success) {
           // Show success toast
-          window.showSuccess('Server Created!', `"${serverData.name}" has been created successfully.`);
+          const action = this.serverType === 'custom' ? 'Created' : 'Imported';
+          window.showSuccess(`Server ${action}!`, `"${this.serverName}" has been ${action.toLowerCase()} successfully.`);
           
           // Close the dialog
           this.dialog = false;
@@ -542,12 +706,15 @@ export default {
       this.serverIcon = null;
       this.serverName = '';
       this.serverLoader = 'vanilla';
-      this.gameVersion = this.store.settings.general.defaultGameVersion;
+      this.gameVersion = this.store.settings.general.defaultGameVersion || '1.21.2';
       this.showAdvanced = false;
       this.serverDirectory = '';
       this.downloadUrl = ''; // Reset downloadUrl
-      this.memoryAllocation = this.store.settings.java.memory;
+      this.memoryAllocation = this.store.settings.java.memory || 4;
       this.autoStart = false; // Don't auto-start by default
+      this.importFilePath = '';
+      this.importFileInfo = null;
+      this.selectedImportFile = null;
     }
   }
 }
@@ -619,10 +786,8 @@ export default {
   bottom: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(8px);
   z-index: 1000;
-  background-image: radial-gradient(circle at 50% 50%, rgba(74, 222, 128, 0.15) 0%, transparent 70%);
 }
 .add-server-btn {
   text-transform: uppercase;

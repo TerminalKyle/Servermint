@@ -689,6 +689,18 @@ eula=true`;
       console.error(`Error getting Java path: ${error}`);
       return { success: false, error };
     }
+  },
+  
+  async invoke(command, args) {
+    try {
+      console.log(`[TauriAPI] Invoking command: ${command}`, args);
+      const result = await invoke(command, args);
+      console.log(`[TauriAPI] Command result:`, result);
+      return result;
+    } catch (error) {
+      console.error(`[TauriAPI] Error invoking command ${command}:`, error);
+      throw error;
+    }
   }
 };
 
@@ -714,11 +726,14 @@ export const store = reactive({
       firstRun: true,
       autoStart: false,
       splashScreen: true,
-      showServerIPs: true
+      showServerIPs: true,
+      defaultServerPath: 'C:\\servermint\\servers',
+      defaultGameVersion: '1.21.2'
     },
     java: {
       path: '',
-      version: '17'
+      version: '17',
+      memory: 4
     },
     server: {
       defaultPort: 25565,
@@ -1011,6 +1026,23 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       
       console.log(`Starting server ${serverId} at path: ${server.path}`);
       
+      // Check if server is already running
+      if (this.isServerRunning(serverId)) {
+        console.log(`Server ${serverId} is already running, stopping previous instance first...`);
+        
+        // Stop the existing server instance
+        try {
+          await this.stopServer(serverId);
+          console.log(`Previous instance of server ${serverId} stopped successfully`);
+          
+          // Wait a moment for cleanup
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (stopError) {
+          console.warn(`Failed to stop previous instance: ${stopError.message}`);
+          // Continue anyway, the backend might handle this
+        }
+      }
+      
       // Update server status
       server.status = 'starting';
       
@@ -1079,6 +1111,30 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
           } catch (javaError) {
             console.error('Java setup failed:', javaError);
             throw new Error(`Failed to start server due to Java version issue. Please setup Java manually: ${error}`);
+          }
+        }
+        
+        // Check if it's a "Server is already running" error
+        if (error.includes('already running') || error.includes('Server is already running')) {
+          console.log('Server is already running, attempting to connect to existing instance...');
+          
+          // Try to connect to the existing server instance
+          try {
+            // Update server status to online since it's already running
+            server.status = 'online';
+            
+            // Start polling for the existing server
+            this.startOutputPolling(serverId);
+            
+            // Show success message
+            if (window.showSuccess) {
+              window.showSuccess('Server Connected!', `"${server.name}" is already running and has been connected.`);
+            }
+            
+            return { success: true };
+          } catch (connectError) {
+            console.error('Failed to connect to existing server:', connectError);
+            throw new Error(`Server is already running but cannot be connected to. Please stop it manually and try again.`);
           }
         }
         
@@ -1185,13 +1241,202 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       if (serverProcess.output.length > 1000) {
         serverProcess.output.shift();
       }
+      
+      // Parse players from the new message
+      this.parsePlayersFromOutput(serverId, serverProcess.output);
+    }
+  },
+
+  parsePlayersFromOutput(serverId, output) {
+    try {
+      console.log(`[Player Tracking] Parsing players from output for server: ${serverId}`);
+      console.log(`[Player Tracking] Output length: ${output ? output.length : 0}`);
+      
+      const serverProcess = this.serverProcesses.get(serverId);
+      if (!serverProcess) {
+        console.warn(`[Player Tracking] No server process found for: ${serverId}`);
+        return;
+      }
+
+      // Initialize players array if it doesn't exist
+      if (!serverProcess.players) {
+        serverProcess.players = [];
+        console.log(`[Player Tracking] Initialized players array for: ${serverId}`);
+      }
+
+      // Track players we've seen in this output
+      const currentPlayers = new Set();
+      
+      // Debug: Show last few lines to see what we're working with
+      const lastLines = output.slice(-10);
+      console.log(`[Player Tracking] Last 10 lines of output:`, lastLines);
+      
+      // Parse each line for player activity
+      for (const line of output) {
+        if (!line || typeof line !== 'string') continue;
+
+        // Debug: Check if line contains "joined the game"
+        if (line.includes('joined the game')) {
+          console.log(`[Player Tracking] Found line with 'joined the game': "${line}"`);
+        }
+
+        // Parse player join messages
+        const joinMatch = line.match(/\[.*?\/INFO\]: (\w+) joined the game/);
+        if (joinMatch) {
+          const playerName = joinMatch[1];
+          currentPlayers.add(playerName);
+          console.log(`[Player Tracking] Found join message for: ${playerName}`);
+          
+          // Add player if not already in the list
+          if (!serverProcess.players.find(p => p.name === playerName)) {
+            serverProcess.players.push({
+              name: playerName,
+              playTime: 0,
+              location: 'Unknown',
+              isOnline: true,
+              joinTime: Date.now()
+            });
+            console.log(`[Player Tracking] Added player: ${playerName}`);
+            console.log(`[Player Tracking] Current players: ${serverProcess.players.map(p => p.name).join(', ')}`);
+            
+            // Trigger enhanced player data fetching
+            this.triggerEnhancedPlayerDataFetch(serverId, playerName);
+          } else {
+            console.log(`[Player Tracking] Player already exists: ${playerName}`);
+          }
+          continue;
+        }
+
+        // Parse player leave messages
+        const leaveMatch = line.match(/\[.*?\/INFO\]: (\w+) left the game/);
+        if (leaveMatch) {
+          const playerName = leaveMatch[1];
+          // Remove player from the list
+          const playerIndex = serverProcess.players.findIndex(p => p.name === playerName);
+          if (playerIndex !== -1) {
+            serverProcess.players.splice(playerIndex, 1);
+            console.log(`[Player Tracking] Removed player: ${playerName}`);
+          }
+          continue;
+        }
+
+        // Parse player chat messages (to detect online players)
+        const chatMatch = line.match(/\[.*?\/INFO\]: <(\w+)> .+/);
+        if (chatMatch) {
+          const playerName = chatMatch[1];
+          currentPlayers.add(playerName);
+          
+          // Add player if not already in the list
+          if (!serverProcess.players.find(p => p.name === playerName)) {
+            serverProcess.players.push({
+              name: playerName,
+              playTime: 0,
+              location: 'Unknown',
+              isOnline: true,
+              joinTime: Date.now()
+            });
+            console.log(`[Player Tracking] Added player from chat: ${playerName}`);
+          }
+          continue;
+        }
+
+        // Parse player death messages
+        const deathMatch = line.match(/\[.*?\/INFO\]: (\w+) was slain by (\w+)/);
+        if (deathMatch) {
+          const victim = deathMatch[1];
+          const killer = deathMatch[2];
+          currentPlayers.add(victim);
+          currentPlayers.add(killer);
+          
+          // Add players if not already in the list
+          [victim, killer].forEach(playerName => {
+            if (!serverProcess.players.find(p => p.name === playerName)) {
+              serverProcess.players.push({
+                name: playerName,
+                playTime: 0,
+                location: 'Unknown',
+                isOnline: true,
+                joinTime: Date.now()
+              });
+              console.log(`[Player Tracking] Added player from death: ${playerName}`);
+            }
+          });
+          continue;
+        }
+
+        // Parse other player activity (commands, etc.)
+        const commandMatch = line.match(/\[.*?\/INFO\]: (\w+): \//);
+        if (commandMatch) {
+          const playerName = commandMatch[1];
+          currentPlayers.add(playerName);
+          
+          // Add player if not already in the list
+          if (!serverProcess.players.find(p => p.name === playerName)) {
+            serverProcess.players.push({
+              name: playerName,
+              playTime: 0,
+              location: 'Unknown',
+              isOnline: true,
+              joinTime: Date.now()
+            });
+            console.log(`[Player Tracking] Added player from command: ${playerName}`);
+          }
+          continue;
+        }
+      }
+
+      // Update playtime for all current players
+      const now = Date.now();
+      serverProcess.players.forEach(player => {
+        if (player.joinTime) {
+          player.playTime = Math.floor((now - player.joinTime) / 1000);
+        }
+      });
+
+      console.log(`[Player Tracking] Current players: ${serverProcess.players.map(p => p.name).join(', ')}`);
+    } catch (error) {
+      console.error('[Player Tracking] Error parsing players from output:', error);
+    }
+  },
+
+  refreshPlayerData(serverId) {
+    try {
+      const serverProcess = this.serverProcesses.get(serverId);
+      if (!serverProcess || !serverProcess.output) return;
+
+      console.log('[Player Tracking] Refreshing player data from console output...');
+      this.parsePlayersFromOutput(serverId, serverProcess.output);
+    } catch (error) {
+      console.error('[Player Tracking] Error refreshing player data:', error);
+    }
+  },
+
+  triggerEnhancedPlayerDataFetch(serverId, playerName) {
+    try {
+      console.log(`[Player Tracking] Triggering enhanced data fetch for: ${playerName}`);
+      
+      // Emit a custom event that the Vue component can listen to
+      const event = new CustomEvent('player-joined', {
+        detail: {
+          serverId: serverId,
+          playerName: playerName
+        }
+      });
+      window.dispatchEvent(event);
+      
+      console.log(`[Player Tracking] Dispatched player-joined event for: ${playerName}`);
+    } catch (error) {
+      console.error('[Player Tracking] Error triggering enhanced data fetch:', error);
     }
   },
   
   startOutputPolling(serverId) {
+    console.log(`[Output Polling] Starting output polling for server: ${serverId}`);
+    
     // Clear any existing polling interval
     if (this.outputPollingIntervals && this.outputPollingIntervals[serverId]) {
       clearInterval(this.outputPollingIntervals[serverId]);
+      console.log(`[Output Polling] Cleared existing polling interval for server: ${serverId}`);
     }
     
     // Initialize polling intervals if not exists
@@ -1199,35 +1444,54 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       this.outputPollingIntervals = {};
     }
     
+    // Ensure server process exists
+    if (!this.serverProcesses.has(serverId)) {
+      console.log(`[Output Polling] Creating server process for: ${serverId}`);
+      this.serverProcesses.set(serverId, {
+        id: serverId,
+        output: ['[INFO] Starting output polling...'],
+        players: [],
+        isRunning: true
+      });
+    }
+    
     // Start polling for server output every 500ms
     this.outputPollingIntervals[serverId] = setInterval(async () => {
-      if (!this.isServerRunning(serverId)) {
-        // Stop polling if server is not running
-        clearInterval(this.outputPollingIntervals[serverId]);
-        delete this.outputPollingIntervals[serverId];
-        return;
-      }
+      console.log(`[Output Polling] Polling server output for: ${serverId}`);
       
       try {
         const output = await invoke('get_server_output', { id: serverId });
+        console.log(`[Output Polling] Got output for ${serverId}:`, output ? output.length : 0, 'lines');
+        
         if (output && Array.isArray(output)) {
           const serverProcess = this.serverProcesses.get(serverId);
           if (serverProcess) {
             // Replace the output with the real server output
             serverProcess.output = output;
+            console.log(`[Output Polling] Updated output for ${serverId}, now has ${output.length} lines`);
+            
+            // Parse players from console output
+            this.parsePlayersFromOutput(serverId, output);
+          } else {
+            console.warn(`[Output Polling] No server process found for: ${serverId}`);
           }
+        } else {
+          console.log(`[Output Polling] No output or invalid output for: ${serverId}`);
         }
       } catch (error) {
-        console.error('Error polling server output:', error);
+        console.error(`[Output Polling] Error polling server output for ${serverId}:`, error);
         
         // If server not found, stop polling and clean up
-        if (error.includes('not found')) {
+        if (error.toString().includes('not found')) {
+          console.log(`[Output Polling] Server not found, stopping polling for: ${serverId}`);
           clearInterval(this.outputPollingIntervals[serverId]);
           delete this.outputPollingIntervals[serverId];
           this.serverProcesses.delete(serverId);
         }
       }
     }, 500);
+    
+    console.log(`[Output Polling] Output polling started for server: ${serverId}`);
   },
   
   async getServerFiles(serverId, path = '', recursive = false) {
@@ -1368,6 +1632,33 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   getServerStatus(serverId) {
     const server = this.getServerById(serverId);
     return server ? server.status : 'unknown';
+  },
+
+  async checkServerStatus(serverId) {
+    try {
+      const server = this.getServerById(serverId);
+      if (!server) return 'unknown';
+
+      // Check if we have a running process
+      if (this.isServerRunning(serverId)) {
+        server.status = 'online';
+        return 'online';
+      }
+
+      // Try to check with the backend
+      try {
+        const status = await invoke('get_server_status', { id: serverId });
+        server.status = status;
+        return status;
+      } catch (error) {
+        console.warn(`Could not get server status from backend: ${error}`);
+        // Fall back to stored status
+        return server.status || 'offline';
+      }
+    } catch (error) {
+      console.error('Error checking server status:', error);
+      return 'unknown';
+    }
   },
   
   getDownloadProgress(serverId) {

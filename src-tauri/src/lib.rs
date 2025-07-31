@@ -3,9 +3,82 @@ mod setup;
 mod node;
 mod sftp;
 mod export;
+mod modpack;
 
 use std::sync::{Arc, Mutex};
 use server::ServerManager;
+use modpack::{install_modpack_from_file, analyze_modpack_file};
+use std::fs;
+use std::path::Path;
+use std::io::{Write, Seek};
+use serde::{Deserialize, Serialize};
+use reqwest;
+
+#[tauri::command]
+async fn create_temp_file(file_name: String, file_data: Vec<u8>) -> Result<String, String> {
+    use std::env;
+    
+    // Get the temp directory
+    let temp_dir = env::temp_dir();
+    let temp_file_path = temp_dir.join(&file_name);
+    
+    // Write the file data to the temp file
+    let mut file = fs::File::create(&temp_file_path)
+        .map_err(|e| format!("Failed to create temp file: {}", e))?;
+    
+    file.write_all(&file_data)
+        .map_err(|e| format!("Failed to write file data: {}", e))?;
+    
+    // Return the path as a string
+    Ok(temp_file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn create_temp_file_from_blob(fileName: String, fileSize: u64) -> Result<String, String> {
+    use std::env;
+    
+    // Get the temp directory
+    let temp_dir = env::temp_dir();
+    let temp_file_path = temp_dir.join(&fileName);
+    
+    // Create an empty file with the specified size
+    let file = fs::File::create(&temp_file_path)
+        .map_err(|e| format!("Failed to create temp file: {}", e))?;
+    
+    // Pre-allocate the file size (optional, for performance)
+    if fileSize > 0 {
+        file.set_len(fileSize)
+            .map_err(|e| format!("Failed to set file size: {}", e))?;
+    }
+    
+    // Return the path as a string
+    Ok(temp_file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn write_temp_file_chunk(temp_path: String, chunk_index: usize, chunk_data: Vec<u8>) -> Result<(), String> {
+    use std::fs::OpenOptions;
+    
+    // Open the file for writing at the specific offset
+    let mut file = OpenOptions::new()
+        .write(true)
+        .open(&temp_path)
+        .map_err(|e| format!("Failed to open temp file for writing: {}", e))?;
+    
+    // Calculate the offset for this chunk (assuming 1MB chunks)
+    let chunk_size = 1024 * 1024; // 1MB
+    let offset = chunk_index * chunk_size;
+    
+    // Seek to the correct position
+    file.seek(std::io::SeekFrom::Start(offset as u64))
+        .map_err(|e| format!("Failed to seek to position: {}", e))?;
+    
+    // Write the chunk data
+    file.write_all(&chunk_data)
+        .map_err(|e| format!("Failed to write chunk data: {}", e))?;
+    
+    Ok(())
+}
 
 #[tauri::command]
 async fn open_folder(path: String) -> Result<(), String> {
@@ -423,6 +496,122 @@ async fn get_mint_menu_commands() -> Result<serde_json::Value, String> {
     }))
 }
 
+// Mojang API data structures
+#[derive(Debug, Serialize, Deserialize)]
+struct MojangProfile {
+    id: String,
+    name: String,
+    legacy: Option<bool>,
+    demo: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct MojangSessionProfile {
+    id: String,
+    name: String,
+    properties: Vec<MojangProperty>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct MojangProperty {
+    name: String,
+    value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TexturesData {
+    textures: Option<Textures>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Textures {
+    SKIN: Option<TextureInfo>,
+    CAPE: Option<TextureInfo>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TextureInfo {
+    url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PlayerProfile {
+    name: String,
+    uuid: String,
+    skin: Option<String>,
+    cape: Option<String>,
+    legacy: bool,
+    demo: bool,
+}
+
+// Mojang API functions
+#[tauri::command]
+async fn get_player_uuid(player_name: String) -> Result<Option<String>, String> {
+    let client = reqwest::Client::new();
+    let url = format!("https://api.mojang.com/users/profiles/minecraft/{}", player_name);
+    
+    match client.get(&url).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                match response.json::<MojangProfile>().await {
+                    Ok(profile) => Ok(Some(profile.id)),
+                    Err(e) => Err(format!("Failed to parse profile: {}", e)),
+                }
+            } else if response.status() == 404 {
+                Ok(None) // Player not found
+            } else {
+                Err(format!("API request failed with status: {}", response.status()))
+            }
+        },
+        Err(e) => Err(format!("Request failed: {}", e)),
+    }
+}
+
+#[tauri::command]
+async fn get_player_profile(player_name: String, uuid: String) -> Result<PlayerProfile, String> {
+    let client = reqwest::Client::new();
+    let url = format!("https://sessionserver.mojang.com/session/minecraft/profile/{}", uuid);
+    
+    match client.get(&url).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                match response.json::<MojangSessionProfile>().await {
+                    Ok(session_profile) => {
+                        // Parse textures from properties
+                        let mut skin = None;
+                        let mut cape = None;
+                        
+                        for property in session_profile.properties {
+                            if property.name == "textures" {
+                                if let Ok(textures_data) = serde_json::from_str::<TexturesData>(&property.value) {
+                                    if let Some(textures) = textures_data.textures {
+                                        skin = textures.SKIN.map(|t| t.url);
+                                        cape = textures.CAPE.map(|t| t.url);
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                        
+                        Ok(PlayerProfile {
+                            name: session_profile.name,
+                            uuid: session_profile.id,
+                            skin,
+                            cape,
+                            legacy: false, // This would need to be determined from the original profile
+                            demo: false,   // This would need to be determined from the original profile
+                        })
+                    },
+                    Err(e) => Err(format!("Failed to parse session profile: {}", e)),
+                }
+            } else {
+                Err(format!("API request failed with status: {}", response.status()))
+            }
+        },
+        Err(e) => Err(format!("Request failed: {}", e)),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   // Ensure application directories exist
@@ -484,6 +673,11 @@ pub fn run() {
       
       // Export commands
       export::export_server_zip,
+      export::import_server_from_zip,
+      
+      // Modpack commands
+      install_modpack_from_file,
+      analyze_modpack_file,
       
       // File operations
       get_file_size,
@@ -491,6 +685,9 @@ pub fn run() {
       rename_file,
       move_file,
       delete_file_or_directory,
+      create_temp_file,
+      create_temp_file_from_blob,
+      write_temp_file_chunk,
       
       // MintMenu commands
       start_all_servers,
@@ -500,6 +697,10 @@ pub fn run() {
       restart_application,
       quit_application,
       get_mint_menu_commands,
+      
+      // Mojang API commands
+      get_player_uuid,
+      get_player_profile,
     ])
     .setup(|app| {
       // Initialize logging for all builds

@@ -135,6 +135,11 @@
               class="mr-4"
             ></v-switch>
             
+            <GuideButton 
+              @restart-guide="restartGuide"
+              class="mr-2"
+            />
+            
             <v-btn icon variant="text" class="mr-2 main-icon">
               <v-icon>mdi-bell-outline</v-icon>
               <v-badge
@@ -165,6 +170,9 @@
       @update-error="handleUpdateError"
       @update-installed="handleUpdateInstalled"
     />
+    
+    <!-- Guide overlay -->
+    <GuideOverlay ref="guideOverlay" />
   </v-app>
 </template>
 
@@ -175,6 +183,8 @@ import InstallerView from './components/InstallerView.vue'
 import UpdateManager from './components/UpdateManager.vue'
 import SplashScreen from './components/SplashScreen.vue'
 import MintMenu from './components/MintMenu.vue'
+import GuideOverlay from './components/GuideOverlay.vue'
+import GuideButton from './components/GuideButton.vue'
 import { store } from './store.js'
 
 export default {
@@ -185,7 +195,9 @@ export default {
     InstallerView,
     UpdateManager,
     SplashScreen,
-    MintMenu
+    MintMenu,
+    GuideOverlay,
+    GuideButton
   },
   computed: {
     pageTitle() {
@@ -271,6 +283,11 @@ export default {
     
     handleUpdateInstalled(message) {
       this.store.showToast(message, 'success');
+    },
+    
+    restartGuide() {
+      // Restart the guide
+      this.$refs.guideOverlay.startGuide();
     }
   }
 }
