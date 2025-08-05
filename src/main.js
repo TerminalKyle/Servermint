@@ -66,6 +66,11 @@ const vuetify = createVuetify({
         }
       }
     }
+  },
+  defaults: {
+    global: {
+      fontFamily: 'Space Grotesk, sans-serif'
+    }
   }
 })
 

@@ -38,71 +38,101 @@
         </div>
         
         <v-list nav density="compact" class="sidebar-list">
-          <v-list-item
-            prepend-icon="mdi-server"
-            value="servers"
-            :active="$route.path === '/'"
-            @click="$router.push('/')"
-            color="primary"
-            class="sidebar-item mb-2"
-            :class="{ 'active-item': $route.path === '/' }"
-            rounded="lg"
-          ></v-list-item>
+          <v-tooltip location="right" text="Servers">
+            <template v-slot:activator="{ props }">
+              <v-list-item
+                prepend-icon="mdi-server"
+                value="servers"
+                :active="$route.path === '/'"
+                @click="$router.push('/')"
+                color="primary"
+                class="sidebar-item mb-2"
+                :class="{ 'active-item': $route.path === '/' }"
+                rounded="lg"
+                v-bind="props"
+              ></v-list-item>
+            </template>
+          </v-tooltip>
           
-          <v-list-item
-            prepend-icon="mdi-puzzle-outline"
-            value="mods"
-            :active="$route.path === '/mods'"
-            @click="$router.push('/mods')"
-            color="primary"
-            class="sidebar-item mb-2"
-            :class="{ 'active-item': $route.path === '/mods' }"
-            rounded="lg"
-          ></v-list-item>
+          <v-tooltip location="right" text="Mods">
+            <template v-slot:activator="{ props }">
+              <v-list-item
+                prepend-icon="mdi-puzzle-outline"
+                value="mods"
+                :active="$route.path === '/mods'"
+                @click="$router.push('/mods')"
+                color="primary"
+                class="sidebar-item mb-2"
+                :class="{ 'active-item': $route.path === '/mods' }"
+                rounded="lg"
+                v-bind="props"
+              ></v-list-item>
+            </template>
+          </v-tooltip>
           
-          <v-list-item
-            prepend-icon="mdi-plus-circle"
-            value="plugin-setup"
-            :active="$route.path === '/plugin-setup'"
-            @click="$router.push('/plugin-setup')"
-            color="primary"
-            class="sidebar-item mb-2"
-            :class="{ 'active-item': $route.path === '/plugin-setup' }"
-            rounded="lg"
-          ></v-list-item>
+          <v-tooltip location="right" text="Plugin Setup">
+            <template v-slot:activator="{ props }">
+              <v-list-item
+                prepend-icon="mdi-plus-circle"
+                value="plugin-setup"
+                :active="$route.path === '/plugin-setup'"
+                @click="$router.push('/plugin-setup')"
+                color="primary"
+                class="sidebar-item mb-2"
+                :class="{ 'active-item': $route.path === '/plugin-setup' }"
+                rounded="lg"
+                v-bind="props"
+              ></v-list-item>
+            </template>
+          </v-tooltip>
           
-          <v-list-item
-            prepend-icon="mdi-backup-restore"
-            value="backups"
-            :active="$route.path === '/backups'"
-            @click="$router.push('/backups')"
-            color="primary"
-            class="sidebar-item mb-2"
-            :class="{ 'active-item': $route.path === '/backups' }"
-            rounded="lg"
-          ></v-list-item>
+          <v-tooltip location="right" text="Backups">
+            <template v-slot:activator="{ props }">
+              <v-list-item
+                prepend-icon="mdi-backup-restore"
+                value="backups"
+                :active="$route.path === '/backups'"
+                @click="$router.push('/backups')"
+                color="primary"
+                class="sidebar-item mb-2"
+                :class="{ 'active-item': $route.path === '/backups' }"
+                rounded="lg"
+                v-bind="props"
+              ></v-list-item>
+            </template>
+          </v-tooltip>
           
-          <v-list-item
-            prepend-icon="mdi-server-network"
-            value="nodes"
-            :active="$route.path === '/nodes'"
-            @click="$router.push('/nodes')"
-            color="primary"
-            class="sidebar-item mb-2"
-            :class="{ 'active-item': $route.path === '/nodes' }"
-            rounded="lg"
-          ></v-list-item>
+          <v-tooltip location="right" text="Nodes">
+            <template v-slot:activator="{ props }">
+              <v-list-item
+                prepend-icon="mdi-server-network"
+                value="nodes"
+                :active="$route.path === '/nodes'"
+                @click="$router.push('/nodes')"
+                color="primary"
+                class="sidebar-item mb-2"
+                :class="{ 'active-item': $route.path === '/nodes' }"
+                rounded="lg"
+                v-bind="props"
+              ></v-list-item>
+            </template>
+          </v-tooltip>
           
-          <v-list-item
-            prepend-icon="mdi-egg"
-            value="eggs"
-            :active="$route.path === '/eggs'"
-            @click="$router.push('/eggs')"
-            color="primary"
-            class="sidebar-item mb-2"
-            :class="{ 'active-item': $route.path === '/eggs' }"
-            rounded="lg"
-          ></v-list-item>
+          <v-tooltip location="right" text="Eggs">
+            <template v-slot:activator="{ props }">
+              <v-list-item
+                prepend-icon="mdi-egg"
+                value="eggs"
+                :active="$route.path === '/eggs'"
+                @click="$router.push('/eggs')"
+                color="primary"
+                class="sidebar-item mb-2"
+                :class="{ 'active-item': $route.path === '/eggs' }"
+                rounded="lg"
+                v-bind="props"
+              ></v-list-item>
+            </template>
+          </v-tooltip>
         </v-list>
         
         <v-spacer></v-spacer>
@@ -120,9 +150,13 @@
         </div>
         
         <v-list nav density="compact" class="sidebar-list">
-          <v-list-item class="settings-item">
-            <SettingsModal @settings-updated="updateSettings" />
-          </v-list-item>
+          <v-tooltip location="right" text="Settings">
+            <template v-slot:activator="{ props }">
+              <v-list-item class="settings-item" v-bind="props">
+                <SettingsModal @settings-updated="updateSettings" />
+              </v-list-item>
+            </template>
+          </v-tooltip>
         </v-list>
       </div>
     </v-navigation-drawer>
@@ -307,9 +341,65 @@ export default {
 <style>
 html, body {
   overflow: hidden;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+* {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+/* Override Vuetify component fonts */
+.v-btn,
+.v-text-field,
+.v-select,
+.v-textarea,
+.v-card,
+.v-list,
+.v-menu,
+.v-dialog,
+.v-toolbar,
+.v-navigation-drawer,
+.v-main,
+.v-app-bar,
+.v-data-table,
+.v-tabs,
+.v-window,
+.v-stepper,
+.v-expansion-panels,
+.v-alert,
+.v-chip,
+.v-badge,
+.v-tooltip,
+.v-overlay,
+.v-sheet,
+.v-container,
+.v-row,
+.v-col,
+.v-spacer,
+.v-divider,
+.v-progress-linear,
+.v-progress-circular,
+.v-slider,
+.v-switch,
+.v-checkbox,
+.v-radio,
+.v-radio-group,
+.v-checkbox-btn,
+.v-radio-btn,
+.v-input,
+.v-label,
+.v-messages,
+.v-field,
+.v-field__input,
+.v-field__outline,
+.v-field__append-inner,
+.v-field__prepend-inner,
+.v-field__append-outer,
+.v-field__prepend-outer {
+  font-family: 'Space Grotesk', sans-serif !important;
 }
 #app {
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Space Grotesk', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   height: 100vh;

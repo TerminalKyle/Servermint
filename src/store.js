@@ -801,7 +801,7 @@ export const store = reactive({
         this.servers = await Promise.all(servers.map(async server => {
           // Check for server icon
           let icon = null;
-          const iconPath = `${server.config.path}/server-icon.png`;
+          const iconPath = `${server.config.path}/icon.png`;
           console.log(`Looking for icon at: ${iconPath}`);
           try {
             // Check if icon exists and read it
@@ -920,8 +920,8 @@ export const store = reactive({
             uint8Array[i] = binaryData.charCodeAt(i);
           }
 
-          // Save icon as server-icon.png
-          const iconPath = `${serverData.path}/server-icon.png`;
+          // Save icon as icon.png
+          const iconPath = `${serverData.path}/icon.png`;
           await invoke('plugin:fs|write_file', { 
             path: iconPath,
             contents: Array.from(uint8Array)
@@ -1027,7 +1027,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       if (serverData.icon && serverData.icon.startsWith('data:image/')) {
         try {
           console.log('Saving server icon...');
-          const iconPath = `${serverData.path}/server-icon.png`;
+          const iconPath = `${serverData.path}/icon.png`;
           
           // Convert data URL to binary data
           const base64Data = serverData.icon.split(',')[1];

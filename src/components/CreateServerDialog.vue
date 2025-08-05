@@ -422,25 +422,23 @@ export default {
       return `${basePath}/${serverDirName}`;
     },
     availableVersions() {
-      // Return available versions based on selected loader
       const loaderType = this.serverLoader.toLowerCase();
       
       if (loaderType === 'vanilla') {
-        return ['1.21.8', '1.21.2', '1.20.4', '1.19.4', '1.18.2', '1.16.5', '1.12.2'];
+        return ['1.21.8', '1.21.7', '1.21.6', '1.21.5', '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.20.6', '1.20.5', '1.20.4', '1.20.3', '1.20.2', '1.20.1', '1.20', '1.19.4', '1.19.3', '1.19.2', '1.19.1', '1.19', '1.18.2', '1.18.1', '1.18', '1.17.1', '1.17', '1.16.5'];
       } else if (loaderType === 'paper') {
-        return ['1.21.2', '1.20.4', '1.19.4', '1.18.2', '1.16.5', '1.12.2'];
+        return ['1.21.8', '1.21.7', '1.21.6', '1.21.5', '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.20.6', '1.20.5', '1.20.4', '1.20.3', '1.20.2', '1.20.1', '1.20', '1.19.4', '1.19.3', '1.19.2', '1.19.1', '1.19', '1.18.2'];
       } else if (loaderType === 'fabric') {
-        return ['1.21.2', '1.20.1', '1.19.4', '1.18.2', '1.16.5'];
+        return ['1.21.2', '1.20.1', '1.19.4', '1.18.2'];
       } else if (loaderType === 'forge') {
-        return ['1.20.4', '1.19.4', '1.18.2', '1.16.5', '1.12.2'];
+        return ['1.20.4', '1.19.4', '1.18.2'];
       } else if (loaderType === 'neoforge') {
         return ['1.20.4'];
       } else if (loaderType === 'pocketmine') {
-        // PocketMine-MP versions (these are release tags)
         return ['5.8.0', '5.7.0', '5.6.0', '5.5.0', '5.4.0', '5.3.0', '5.2.0', '5.1.0', '5.0.0'];
       }
       
-      return ['1.21.8', '1.21.2', '1.20.4', '1.19.4', '1.18.2', '1.16.5', '1.12.2'];
+      return ['1.21.8', '1.21.2', '1.20.4', '1.19.4', '1.18.2'];
     },
     isBedrockServer() {
       return this.serverLoader.toLowerCase() === 'pocketmine';
