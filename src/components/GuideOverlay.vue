@@ -151,7 +151,6 @@ export default {
         return {};
       }
       
-      // For center position, always center it regardless of target
       if (this.currentStep.position === 'center') {
         return {
           top: '50%',
