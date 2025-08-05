@@ -84,6 +84,7 @@ export default {
     return {
       isActive: false,
       currentStepIndex: 0,
+      resizeTimeout: null,
       steps: [
         {
           title: 'Welcome to ServerMint!',
@@ -325,10 +326,16 @@ export default {
        }
      },
      
-     updateTooltipPosition() {
-       // Force a re-computation of the tooltip position
-       this.$forceUpdate();
-     }
+           updateTooltipPosition() {
+        // Debounce the position update to prevent ResizeObserver errors
+        if (this.resizeTimeout) {
+          clearTimeout(this.resizeTimeout);
+        }
+        this.resizeTimeout = setTimeout(() => {
+          // Force a re-computation of the tooltip position
+          this.$forceUpdate();
+        }, 100);
+      }
   },
   
      mounted() {
