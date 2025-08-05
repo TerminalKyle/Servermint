@@ -77,26 +77,30 @@ function updateUpdatesJson() {
   const updatesPath = path.join(__dirname, '..', 'updates.json');
   const currentDate = new Date().toISOString();
   
+  // Try to read existing signature from the built file
+  let signature = "YOUR_SIGNATURE_HERE";
+  const signaturePath = path.join(__dirname, '..', 'src-tauri', 'target', 'release', 'bundle', 'nsis', `servermint_${version}_x64-setup.exe.sig`);
+  
+  if (fs.existsSync(signaturePath)) {
+    try {
+      signature = fs.readFileSync(signaturePath, 'utf8').trim();
+      console.log(`✅ Found signature for version ${version}`);
+    } catch (error) {
+      console.warn(`⚠️  Could not read signature file: ${error.message}`);
+    }
+  } else {
+    console.warn(`⚠️  Signature file not found: ${signaturePath}`);
+    console.warn('   Make sure to build the application first with: npm run tauri:build');
+  }
+  
   const updatesData = {
     version: version,
     notes: notes,
     pub_date: currentDate,
     platforms: {
-      "darwin-x86_64": {
-        "signature": "YOUR_SIGNATURE_HERE",
-        "url": `https://releases.servermint.app/ServerMint_${version}_x64.dmg`
-      },
-      "darwin-aarch64": {
-        "signature": "YOUR_SIGNATURE_HERE",
-        "url": `https://releases.servermint.app/ServerMint_${version}_aarch64.dmg`
-      },
-      "linux-x86_64": {
-        "signature": "YOUR_SIGNATURE_HERE",
-        "url": `https://releases.servermint.app/ServerMint_${version}_amd64.AppImage`
-      },
       "windows-x86_64": {
-        "signature": "YOUR_SIGNATURE_HERE",
-        "url": `https://releases.servermint.app/ServerMint_${version}_x64-setup.exe`
+        "signature": signature,
+        "url": `https://releases.servermint.app/servermint_${version}_x64-setup.exe`
       }
     }
   };
@@ -121,15 +125,14 @@ try {
   console.log('');
   console.log('Next steps:');
   console.log('1. Build the application: npm run tauri:build');
-  console.log('2. Sign the release files: tauri signer sign ~/.tauri/servermint.key <file>');
-  console.log('3. Generate signatures for updates.json');
-  console.log('4. Upload release files to your server');
-  console.log('5. Upload the updated updates.json to your server');
+  console.log('2. Run this script again to update signatures: node scripts/update-release.js ' + version);
+  console.log('3. Upload release files to your server');
+  console.log('4. Upload the updated updates.json to your server');
   console.log('');
   console.log('⚠️  Remember to:');
-  console.log('   - Replace "YOUR_SIGNATURE_HERE" in updates.json with actual signatures');
-  console.log('   - Update the URLs in updates.json to match your actual release URLs');
+  console.log('   - Make sure the signature file exists before running this script');
   console.log('   - Test the update process before releasing to users');
+  console.log('   - Verify that signatures are unique for each version');
   
 } catch (error) {
   console.error('❌ Error updating version:', error.message);

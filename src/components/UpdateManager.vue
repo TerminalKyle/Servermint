@@ -111,6 +111,7 @@ export default {
         body: '',
         date: ''
       },
+      update: null,
       checkInterval: null,
       lastCheckTime: 0
     }
@@ -143,6 +144,7 @@ export default {
         const update = await check();
         
         if (update) {
+          this.update = update;
           this.updateInfo = {
             version: update.version,
             body: update.body,
@@ -176,8 +178,8 @@ export default {
         let downloaded = 0;
         let contentLength = 0;
         
-        // Download and install the update with progress tracking
-        await update.downloadAndInstall((event) => {
+        // Download the update with progress tracking
+        await update.download((event) => {
           switch (event.event) {
             case 'Started':
               contentLength = event.data.contentLength;
@@ -220,7 +222,7 @@ export default {
       this.installing = true;
       
       try {
-        // The update is already installed from downloadAndInstall
+        // The update is already installed from the download process
         console.log('Update installed successfully');
         this.$emit('update-installed', 'Update installed successfully');
         
