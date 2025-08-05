@@ -1,13 +1,13 @@
 <template>
   <div class="guide-button-container">
     <v-btn
-      icon="mdi-help-circle-outline"
       variant="text"
       size="small"
       @click="restartGuide"
       class="guide-button"
       :title="tooltip"
     >
+      <v-icon>mdi-help-circle-outline</v-icon>
       <v-tooltip
         activator="parent"
         location="bottom"
@@ -47,11 +47,15 @@ export default {
 }
 
 .guide-button {
-  color: #888;
+  color: #ccc;
   transition: color 0.2s ease;
 }
 
 .guide-button:hover {
   color: #4ade80;
+}
+
+.guide-button .v-icon {
+  font-size: 20px;
 }
 </style> 

@@ -338,17 +338,33 @@ export default {
       }
   },
   
-     mounted() {
-     this.checkIfFirstTime();
-     
-     // Add window resize listener to update tooltip position
-     window.addEventListener('resize', this.updateTooltipPosition);
-   },
+         mounted() {
+      this.checkIfFirstTime();
+      
+      // Add window resize listener to update tooltip position with debouncing
+      let resizeTimeout;
+      const debouncedResizeHandler = () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          this.updateTooltipPosition();
+        }, 150);
+      };
+      
+      window.addEventListener('resize', debouncedResizeHandler);
+      
+      // Store the handler for cleanup
+      this.resizeHandler = debouncedResizeHandler;
+    },
    
-   beforeUnmount() {
-     // Clean up event listener
-     window.removeEventListener('resize', this.updateTooltipPosition);
-   }
+       beforeUnmount() {
+      // Clean up event listener and timeout
+      if (this.resizeHandler) {
+        window.removeEventListener('resize', this.resizeHandler);
+      }
+      if (this.resizeTimeout) {
+        clearTimeout(this.resizeTimeout);
+      }
+    }
 }
 </script>
 
