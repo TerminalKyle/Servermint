@@ -146,10 +146,28 @@ export default {
     currentStep() {
       return this.steps[this.currentStepIndex];
     },
-         tooltipStyle() {
-       if (!this.currentStep || !this.currentStep.target) {
-         return {};
-       }
+             tooltipStyle() {
+      if (!this.currentStep) {
+        return {};
+      }
+      
+      // For center position, always center it regardless of target
+      if (this.currentStep.position === 'center') {
+        return {
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)'
+        };
+      }
+      
+      // If no target is specified, center it
+      if (!this.currentStep.target) {
+        return {
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)'
+        };
+      }
        
        const target = document.querySelector(this.currentStep.target);
        if (!target) {
@@ -165,48 +183,76 @@ export default {
        const position = this.currentStep.position || 'bottom';
        
        // Tooltip dimensions (approximate)
-       const tooltipWidth = 320;
-       const tooltipHeight = 200;
-       const margin = 40; // Safe margin from screen edges
+       const tooltipWidth = 400;
+       const tooltipHeight = 250;
+       const margin = 60; // Safe margin from screen edges
        
        let top, left;
        
-       switch (position) {
-         case 'top':
-           top = rect.top - tooltipHeight - 20;
-           left = rect.left + rect.width / 2;
-           break;
-         case 'bottom':
-           top = rect.bottom + 20;
-           left = rect.left + rect.width / 2;
-           break;
-         case 'left':
-           top = rect.top + rect.height / 2;
-           left = rect.left - tooltipWidth - 20;
-           break;
-         case 'right':
-           top = rect.top + rect.height / 2;
-           left = rect.right + 20;
-           break;
-         case 'center':
-           top = window.innerHeight / 2;
-           left = window.innerWidth / 2;
-           break;
-         default:
-           top = rect.bottom + 20;
-           left = rect.left + rect.width / 2;
-       }
-       
-       // Ensure the tooltip is always within viewport bounds with safe margins
-       let finalTop = Math.max(margin, Math.min(window.innerHeight - margin - tooltipHeight, top));
-       let finalLeft = Math.max(margin + tooltipWidth / 2, Math.min(window.innerWidth - margin - tooltipWidth / 2, left));
-       
-       // If the tooltip would still be cut off, center it instead
-       if (finalTop < margin || finalTop > window.innerHeight - margin - tooltipHeight ||
-           finalLeft < margin + tooltipWidth / 2 || finalLeft > window.innerWidth - margin - tooltipWidth / 2) {
-         finalTop = window.innerHeight / 2;
-         finalLeft = window.innerWidth / 2;
-       }
+               switch (position) {
+          case 'top':
+            top = rect.top - tooltipHeight - 20;
+            left = rect.left + rect.width / 2;
+            break;
+          case 'bottom':
+            top = rect.bottom + 20;
+            left = rect.left + rect.width / 2;
+            break;
+          case 'left':
+            top = rect.top + rect.height / 2;
+            left = rect.left - tooltipWidth - 20;
+            break;
+          case 'right':
+            top = rect.top + rect.height / 2;
+            left = rect.right + 20;
+            break;
+          case 'center':
+            // For center position, always center it regardless of target
+            top = window.innerHeight / 2;
+            left = window.innerWidth / 2;
+            break;
+          default:
+            top = rect.bottom + 20;
+            left = rect.left + rect.width / 2;
+                }
+        
+        // Ensure the tooltip is always within viewport bounds with safe margins
+        let finalTop = Math.max(margin, Math.min(window.innerHeight - margin - tooltipHeight, top));
+        let finalLeft = Math.max(margin + tooltipWidth / 2, Math.min(window.innerWidth - margin - tooltipWidth / 2, left));
+        
+        // Check if tooltip would be cut off
+        const wouldBeCutOff = finalTop < margin || 
+                             finalTop > window.innerHeight - margin - tooltipHeight ||
+                             finalLeft < margin + tooltipWidth / 2 || 
+                             finalLeft > window.innerWidth - margin - tooltipWidth / 2;
+        
+        // If the tooltip would be cut off, try alternative positions
+        if (wouldBeCutOff) {
+          // Try positioning above the target
+          if (rect.top > tooltipHeight + margin) {
+            finalTop = rect.top - tooltipHeight - 20;
+            finalLeft = Math.max(margin + tooltipWidth / 2, Math.min(window.innerWidth - margin - tooltipWidth / 2, rect.left + rect.width / 2));
+          }
+          // Try positioning to the left
+          else if (rect.left > tooltipWidth + margin) {
+            finalTop = Math.max(margin, Math.min(window.innerHeight - margin - tooltipHeight, rect.top + rect.height / 2));
+            finalLeft = rect.left - tooltipWidth - 20;
+          }
+          // Try positioning to the right
+          else if (rect.right + tooltipWidth + margin < window.innerWidth) {
+            finalTop = Math.max(margin, Math.min(window.innerHeight - margin - tooltipHeight, rect.top + rect.height / 2));
+            finalLeft = rect.right + 20;
+          }
+          // If all else fails, center it
+          else {
+            finalTop = window.innerHeight / 2;
+            finalLeft = window.innerWidth / 2;
+          }
+        }
+        
+        // Final bounds check
+        finalTop = Math.max(margin, Math.min(window.innerHeight - margin - tooltipHeight, finalTop));
+        finalLeft = Math.max(margin + tooltipWidth / 2, Math.min(window.innerWidth - margin - tooltipWidth / 2, finalLeft));
        
        return {
          top: `${finalTop}px`,
@@ -324,7 +370,7 @@ export default {
 
 .guide-tooltip {
   position: absolute;
-  max-width: 320px;
+  max-width: 400px;
   min-width: 280px;
   background-color: #1e1e1e;
   border: 2px solid #4ade80;
@@ -340,9 +386,11 @@ export default {
 /* Responsive adjustments for smaller screens */
 @media (max-width: 768px) {
   .guide-tooltip {
-    max-width: 280px;
-    min-width: 240px;
-    margin: 0 10px;
+    max-width: 320px;
+    min-width: 280px;
+    margin: 0 20px;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
   }
   
   .guide-content {
@@ -355,6 +403,14 @@ export default {
   
   .guide-actions {
     padding: 12px 16px 16px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .guide-tooltip {
+    max-width: 280px;
+    min-width: 240px;
+    margin: 0 10px;
   }
 }
 
