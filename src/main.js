@@ -24,6 +24,7 @@ import ServerManagementView from './components/ServerManagementView.vue'
 import PremadeServersView from './components/PremadeServersView.vue'
 import NodesView from './components/NodesView.vue'
 import PluginSetupView from './components/PluginSetupView.vue'
+import EggManagerView from './components/EggManagerView.vue'
 
 // Define routes
 const routes = [
@@ -34,6 +35,7 @@ const routes = [
   { path: '/server/:serverId', name: 'ServerManagement', component: ServerManagementView },
   { path: '/premade', name: 'PremadeServers', component: PremadeServersView },
   { path: '/nodes', name: 'Nodes', component: NodesView },
+  { path: '/eggs', name: 'Eggs', component: EggManagerView },
   { path: '/:pathMatch(.*)*', redirect: '/' } // Redirect any unmatched routes to home
 ]
 

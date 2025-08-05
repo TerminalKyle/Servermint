@@ -112,6 +112,7 @@ dependencies = [
  "futures",
  "futures-util",
  "get_if_addrs",
+ "lazy_static",
  "log",
  "once_cell",
  "reqwest 0.11.27",

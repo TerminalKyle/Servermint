@@ -78,11 +78,30 @@ const tauriAPI = {
           await writeTextFile(path, content);
           console.log(`Successfully wrote text file: ${path}`);
           return { success: true };
-        } else {
-          // For binary content, use writeFile (if needed)
-          console.log(`Binary file writing not implemented, falling back to mock`);
-          console.log(`[MOCK] Writing binary file: ${path}`);
+        } else if (content instanceof Uint8Array) {
+          // For binary content, use our custom write_binary_file command
+          await invoke('write_binary_file', { 
+            path: path, 
+            data: Array.from(content) 
+          });
+          console.log(`Successfully wrote binary file: ${path}`);
           return { success: true };
+        } else {
+          // For other types, convert to string or binary as appropriate
+          console.log(`Converting content to appropriate format for: ${path}`);
+          if (typeof content === 'object' && content !== null) {
+            // Try to convert to JSON string
+            const jsonString = JSON.stringify(content, null, 2);
+            await writeTextFile(path, jsonString);
+            console.log(`Successfully wrote JSON file: ${path}`);
+            return { success: true };
+          } else {
+            // Convert to string
+            const stringContent = String(content);
+            await writeTextFile(path, stringContent);
+            console.log(`Successfully wrote string file: ${path}`);
+            return { success: true };
+          }
         }
       } catch (error) {
         console.error(`Tauri API error writing file: ${error}`);
@@ -753,10 +772,29 @@ export const store = reactive({
   
   // Methods
   async loadServers() {
+    // Prevent recursive calls
+    if (this._loadingServers) {
+      console.log('loadServers already in progress, skipping...');
+      return;
+    }
+    
+    this._loadingServers = true;
     try {
       console.log('Loading servers from backend...');
       const servers = await invoke('list_servers');
       console.log('Loaded servers from backend:', servers);
+      
+      // Debug: Log each server's config
+      if (servers && Array.isArray(servers)) {
+        servers.forEach((server, index) => {
+          console.log(`Server ${index}:`, {
+            id: server.id,
+            name: server.config?.name,
+            path: server.config?.path,
+            type: server.config?.server_type
+          });
+        });
+      }
       
       // Update the servers array with data from backend
       if (servers && Array.isArray(servers)) {
@@ -764,15 +802,22 @@ export const store = reactive({
           // Check for server icon
           let icon = null;
           const iconPath = `${server.config.path}/server-icon.png`;
+          console.log(`Looking for icon at: ${iconPath}`);
           try {
-            // Check if icon exists
-            const iconExists = await invoke('plugin:fs|exists', { path: iconPath });
-            if (iconExists) {
-              // Read icon file
-              const iconData = await invoke('plugin:fs|read_binary_file', { path: iconPath });
-              // Convert to base64
-              const base64 = btoa(String.fromCharCode.apply(null, iconData));
-              icon = `data:image/png;base64,${base64}`;
+            // Check if icon exists and read it
+            try {
+              // Use a simple file existence check first
+              const iconExists = await invoke('plugin:fs|exists', { path: iconPath });
+              if (iconExists) {
+                // Icon loading disabled to prevent recursion
+                // TODO: Implement icon loading as a separate feature
+                icon = null;
+                console.log(`Icon loading disabled for server ${server.config.name} to prevent recursion`);
+              } else {
+                console.log(`No icon file found for server ${server.config.name}`);
+              }
+            } catch (error) {
+              console.log(`Error checking icon for server ${server.config.name}:`, error);
             }
           } catch (error) {
             console.warn(`Could not load icon for server ${server.config.name}:`, error);
@@ -802,6 +847,8 @@ export const store = reactive({
       console.error('Error loading servers from backend:', error);
       // Start with empty array if backend loading fails
       this.servers = [];
+    } finally {
+      this._loadingServers = false;
     }
   },
   
@@ -976,14 +1023,37 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       // Update server status
       newServer.status = 'offline';
       
+      // Save server icon if provided
+      if (serverData.icon && serverData.icon.startsWith('data:image/')) {
+        try {
+          console.log('Saving server icon...');
+          const iconPath = `${serverData.path}/server-icon.png`;
+          
+          // Convert data URL to binary data
+          const base64Data = serverData.icon.split(',')[1];
+          const binaryData = atob(base64Data);
+          const bytes = new Uint8Array(binaryData.length);
+          for (let i = 0; i < binaryData.length; i++) {
+            bytes[i] = binaryData.charCodeAt(i);
+          }
+          
+          // Save icon file
+          await tauriAPI.writeFile(iconPath, bytes);
+          console.log('Server icon saved successfully');
+        } catch (error) {
+          console.warn('Failed to save server icon:', error);
+          // Don't fail the server creation for icon issues
+        }
+      }
+      
       // Update download progress
       this.downloadProgress.get(currentServerId).progress = 100;
       this.downloadProgress.get(currentServerId).status = 'completed';
       
-      // Refresh servers list from backend to get the actual server data
-      await this.loadServers();
+      // Add the new server to the local array instead of reloading
+      this.servers.push(newServer);
       
-      // Find the created server in the refreshed list
+      // Find the created server in the local array
       const createdServer = this.servers.find(s => s.path === serverData.path);
       
       console.log(`Server "${serverData.name}" created successfully at ${serverData.path}`);

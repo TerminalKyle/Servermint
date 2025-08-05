@@ -84,19 +84,19 @@ function updateUpdatesJson() {
     platforms: {
       "darwin-x86_64": {
         "signature": "YOUR_SIGNATURE_HERE",
-        "url": `https://releases.servermint.gg/ServerMint_${version}_x64.dmg`
+        "url": `https://releases.servermint.app/ServerMint_${version}_x64.dmg`
       },
       "darwin-aarch64": {
         "signature": "YOUR_SIGNATURE_HERE",
-        "url": `https://releases.servermint.gg/ServerMint_${version}_aarch64.dmg`
+        "url": `https://releases.servermint.app/ServerMint_${version}_aarch64.dmg`
       },
       "linux-x86_64": {
         "signature": "YOUR_SIGNATURE_HERE",
-        "url": `https://releases.servermint.gg/ServerMint_${version}_amd64.AppImage`
+        "url": `https://releases.servermint.app/ServerMint_${version}_amd64.AppImage`
       },
       "windows-x86_64": {
         "signature": "YOUR_SIGNATURE_HERE",
-        "url": `https://releases.servermint.gg/ServerMint_${version}_x64-setup.exe`
+        "url": `https://releases.servermint.app/ServerMint_${version}_x64-setup.exe`
       }
     }
   };

@@ -41,6 +41,9 @@
               <v-btn value="fromLauncher" class="type-btn">
                 Import From Launcher
               </v-btn>
+              <v-btn value="fromEgg" class="type-btn">
+                Install from Egg
+              </v-btn>
             </v-btn-toggle>
           </div>
           

@@ -4,6 +4,7 @@ mod node;
 mod sftp;
 mod export;
 mod modpack;
+mod egg;
 
 use std::sync::{Arc, Mutex};
 use server::ServerManager;
@@ -78,6 +79,28 @@ async fn write_temp_file_chunk(temp_path: String, chunk_index: usize, chunk_data
         .map_err(|e| format!("Failed to write chunk data: {}", e))?;
     
     Ok(())
+}
+
+#[tauri::command]
+async fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    // Create the directory if it doesn't exist
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+    
+    // Write the binary data to the file
+    fs::write(&path, &data)
+        .map_err(|e| format!("Failed to write binary file: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
+    // Read the binary data from the file
+    fs::read(&path)
+        .map_err(|e| format!("Failed to read binary file: {}", e))
 }
 
 #[tauri::command]
@@ -688,6 +711,8 @@ pub fn run() {
       create_temp_file,
       create_temp_file_from_blob,
       write_temp_file_chunk,
+      write_binary_file,
+      read_binary_file,
       
       // MintMenu commands
       start_all_servers,
@@ -701,6 +726,14 @@ pub fn run() {
       // Mojang API commands
       get_player_uuid,
       get_player_profile,
+      
+      // Egg commands
+      egg::list_eggs,
+      egg::get_egg,
+      egg::list_eggs_by_category,
+      egg::add_custom_egg,
+      egg::remove_custom_egg,
+      egg::install_server_from_egg,
     ])
     .setup(|app| {
       // Initialize logging for all builds

@@ -1,0 +1,17 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8080",
+  "backendAuthType": "public",
+  "executionArgs": {
+    "projectName": "Servermint",
+    "projectPath": "c:/Users/dylan/Desktop/Coding/Servermint",
+    "testIds": [],
+    "additionalInstruction": "Focus on testing the main user interface components and navigation flows. Test the server management features, mod management, and the global command palette (MintMenu). Include tests for the dark theme with green accents as specified in the design requirements.",
+    "envs": {
+      "API_KEY": "sk-user-Cynf0D1I_OpC5jRwhEBuMTQSQ5b4y5Uq94a-IQkAfSp4Ua9ihZufzCl3_rqr4m5pCcMznPBzVdRre07nhX52a9zlNvH3paQnRqGxcDFpcEdrg7su8uxtvglJoLsKvO-WsHo"
+    }
+  },
+  "proxy": "http://f15ec0f8-d296-4d2f-8128-a084de0a9e64:xOj4J1Ny2epK5dXBHYgaUTBaBlr7cyMU@tun.testsprite.com:8080"
+}

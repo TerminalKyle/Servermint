@@ -16,7 +16,7 @@ echo.
 echo Build complete! Check the src-tauri/target/release/bundle directory for your signed files.
 echo.
 echo Next steps:
-echo 1. Upload the files to your server at https://releases.servermint.gg/
+echo 1. Upload the files to your server at https://releases.servermint.app/
 echo 2. Generate signatures for each platform
 echo 3. Update updates.json with the real signatures
 echo.

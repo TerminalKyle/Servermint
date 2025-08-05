@@ -1,0 +1,817 @@
+{
+  "tech_stack": [
+    "Vue.js",
+    "Vuetify",
+    "Rust",
+    "Tauri",
+    "Node.js",
+    "Express",
+    "WebSocket",
+    "TypeScript",
+    "JavaScript"
+  ],
+  "features": [
+    {
+      "name": "Server Management API",
+      "description": "Core server management functionality including creating, starting, stopping, and monitoring Minecraft servers",
+      "files": [
+        "src-tauri/src/server.rs",
+        "src-tauri/src/lib.rs",
+        "src/components/ServerManagementView.vue",
+        "src/components/ServersView.vue"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Server Management API",
+          "version": "1.0.0",
+          "description": "API for managing Minecraft servers"
+        },
+        "paths": {
+          "/api/servers": {
+            "get": {
+              "summary": "List all servers",
+              "responses": {
+                "200": {
+                  "description": "List of servers",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/ServerInfo"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "post": {
+              "summary": "Create a new server",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/ServerConfig"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Server created successfully"
+                }
+              }
+            }
+          },
+          "/api/servers/{id}/start": {
+            "post": {
+              "summary": "Start a server",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Server started successfully"
+                }
+              }
+            }
+          },
+          "/api/servers/{id}/stop": {
+            "post": {
+              "summary": "Stop a server",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Server stopped successfully"
+                }
+              }
+            }
+          }
+        },
+        "components": {
+          "schemas": {
+            "ServerInfo": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["offline", "online", "starting", "stopping"]
+                }
+              }
+            },
+            "ServerConfig": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Egg System API",
+      "description": "Pterodactyl-style egg system for managing server installation templates and scripts",
+      "files": [
+        "src-tauri/src/egg.rs",
+        "src/components/EggManagerView.vue",
+        "src-tauri/src/eggs/vanilla.sh",
+        "src-tauri/src/eggs/paper.sh",
+        "src-tauri/src/eggs/fabric.sh",
+        "src-tauri/src/eggs/pocketmine.sh"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Egg System API",
+          "version": "1.0.0",
+          "description": "API for managing server installation eggs"
+        },
+        "paths": {
+          "/api/eggs": {
+            "get": {
+              "summary": "List all eggs",
+              "responses": {
+                "200": {
+                  "description": "List of eggs",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/Egg"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "post": {
+              "summary": "Create a custom egg",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/Egg"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Egg created successfully"
+                }
+              }
+            }
+          },
+          "/api/eggs/{id}/install": {
+            "post": {
+              "summary": "Install server from egg",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/InstallConfig"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Server installed successfully"
+                }
+              }
+            }
+          }
+        },
+        "components": {
+          "schemas": {
+            "Egg": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "script": {
+                  "type": "string"
+                },
+                "startup_command": {
+                  "type": "string"
+                },
+                "variables": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EggVariable"
+                  }
+                }
+              }
+            },
+            "EggVariable": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "default_value": {
+                  "type": "string"
+                },
+                "rules": {
+                  "type": "string"
+                }
+              }
+            },
+            "InstallConfig": {
+              "type": "object",
+              "properties": {
+                "serverName": {
+                  "type": "string"
+                },
+                "serverPath": {
+                  "type": "string"
+                },
+                "variables": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Node Management API",
+      "description": "Remote node management for VPS servers and agent communication",
+      "files": [
+        "src-tauri/src/node.rs",
+        "src/components/NodesView.vue",
+        "relay-server/server.js",
+        "src-tauri/agent/main.rs"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Node Management API",
+          "version": "1.0.0",
+          "description": "API for managing remote VPS nodes"
+        },
+        "paths": {
+          "/api/nodes": {
+            "get": {
+              "summary": "List all nodes",
+              "responses": {
+                "200": {
+                  "description": "List of nodes",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/Node"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "post": {
+              "summary": "Add a new node",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/NodeConfig"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Node added successfully"
+                }
+              }
+            }
+          },
+          "/api/nodes/{id}/token": {
+            "post": {
+              "summary": "Generate pairing token for node",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Token generated",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "token": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "components": {
+          "schemas": {
+            "Node": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "port": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["offline", "online", "connecting"]
+                }
+              }
+            },
+            "NodeConfig": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "host": {
+                  "type": "string"
+                },
+                "port": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "File Management API",
+      "description": "File system operations for server files, backups, and mod management",
+      "files": [
+        "src-tauri/src/lib.rs",
+        "src/components/FileEditor.vue",
+        "src/components/BackupsView.vue",
+        "src/components/ModsView.vue"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "File Management API",
+          "version": "1.0.0",
+          "description": "API for managing server files and backups"
+        },
+        "paths": {
+          "/api/files/{serverId}": {
+            "get": {
+              "summary": "List files in server directory",
+              "parameters": [
+                {
+                  "name": "serverId",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "List of files",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/FileInfo"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/files/{serverId}/upload": {
+            "post": {
+              "summary": "Upload file to server",
+              "parameters": [
+                {
+                  "name": "serverId",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "requestBody": {
+                "content": {
+                  "multipart/form-data": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "file": {
+                          "type": "string",
+                          "format": "binary"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "File uploaded successfully"
+                }
+              }
+            }
+          }
+        },
+        "components": {
+          "schemas": {
+            "FileInfo": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "integer"
+                },
+                "isDirectory": {
+                  "type": "boolean"
+                },
+                "modified": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Plugin Development API",
+      "description": "Minecraft plugin development tools and project setup",
+      "files": [
+        "src/components/PluginSetupView.vue",
+        "src/components/InstallerView.vue"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Plugin Development API",
+          "version": "1.0.0",
+          "description": "API for Minecraft plugin development"
+        },
+        "paths": {
+          "/api/plugins/create": {
+            "post": {
+              "summary": "Create a new plugin project",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/PluginConfig"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Plugin project created successfully"
+                }
+              }
+            }
+          }
+        },
+        "components": {
+          "schemas": {
+            "PluginConfig": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                },
+                "author": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "mcVersion": {
+                  "type": "string"
+                },
+                "serverType": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "SFTP Integration API",
+      "description": "SFTP file transfer and remote server management",
+      "files": [
+        "src-tauri/src/sftp.rs",
+        "src/components/CreateServerDialog.vue"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "SFTP Integration API",
+          "version": "1.0.0",
+          "description": "API for SFTP file operations"
+        },
+        "paths": {
+          "/api/sftp/test": {
+            "post": {
+              "summary": "Test SFTP connection",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/SftpConfig"
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Connection test result",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "success": {
+                            "type": "boolean"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/sftp/upload": {
+            "post": {
+              "summary": "Upload file via SFTP",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "config": {
+                          "$ref": "#/components/schemas/SftpConfig"
+                        },
+                        "localPath": {
+                          "type": "string"
+                        },
+                        "remotePath": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "File uploaded successfully"
+                }
+              }
+            }
+          }
+        },
+        "components": {
+          "schemas": {
+            "SftpConfig": {
+              "type": "object",
+              "properties": {
+                "host": {
+                  "type": "string"
+                },
+                "port": {
+                  "type": "integer"
+                },
+                "username": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Server Export/Import API",
+      "description": "Server backup and restore functionality with ZIP export/import",
+      "files": [
+        "src-tauri/src/export.rs",
+        "src/components/CreateServerDialog.vue"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Server Export/Import API",
+          "version": "1.0.0",
+          "description": "API for server backup and restore"
+        },
+        "paths": {
+          "/api/servers/{id}/export": {
+            "post": {
+              "summary": "Export server to ZIP",
+              "parameters": [
+                {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              ],
+              "responses": {
+                "200": {
+                  "description": "Server exported successfully",
+                  "content": {
+                    "application/zip": {
+                      "schema": {
+                        "type": "string",
+                        "format": "binary"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/servers/import": {
+            "post": {
+              "summary": "Import server from ZIP",
+              "requestBody": {
+                "content": {
+                  "multipart/form-data": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "file": {
+                          "type": "string",
+                          "format": "binary"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Server imported successfully"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Guide System API",
+      "description": "Interactive onboarding guide for new users",
+      "files": [
+        "src/components/GuideOverlay.vue",
+        "src/components/GuideButton.vue"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Guide System API",
+          "version": "1.0.0",
+          "description": "API for interactive user guides"
+        },
+        "paths": {
+          "/api/guide/start": {
+            "post": {
+              "summary": "Start the onboarding guide",
+              "responses": {
+                "200": {
+                  "description": "Guide started successfully"
+                }
+              }
+            }
+          },
+          "/api/guide/complete": {
+            "post": {
+              "summary": "Mark guide as completed",
+              "responses": {
+                "200": {
+                  "description": "Guide completed successfully"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+} 

@@ -83,7 +83,7 @@ Replace the placeholder signatures with the real ones:
 
 ### 5. Upload Files to Your Server
 
-Upload these files to `https://releases.servermint.gg/`:
+Upload these files to `https://releases.servermint.app/`:
 
 **Windows:**
 - `src-tauri/target/release/bundle/msi/ServerMint_0.1.1_x64-setup.msi` → `ServerMint_0.1.1_x64-setup.exe`

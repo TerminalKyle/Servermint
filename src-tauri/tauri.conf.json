@@ -36,10 +36,13 @@
     "createUpdaterArtifacts": true
   },
   "plugins": {
+    "fs": {
+      "requireLiteralLeadingDot": false
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgwOEQ2RTM0MUVEOEY0NzUKUldSMTlOZ2VORzZOZ002TzYyZWp6bTdSQTRUaDVSbGhIblgycU0reUNld3hyejFQOUFWVTVVWkwK",
       "endpoints": [
-        "https://releases.servermint.gg/updates.json"
+        "https://releases.servermint.app/updates.json"
       ]
     }
   }
