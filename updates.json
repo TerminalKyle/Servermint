@@ -1,10 +1,10 @@
 {
   "version": "0.1.2",
   "notes": "Bug Fixes + UI Improvements",
-  "pub_date": "2025-08-05T05:28:56.115Z",
+  "pub_date": "2025-08-08T00:38:23.420Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSMTlOZ2VORzZOZ0c4bWwvckFqa0NDeHRaU0RLV0JORUxrOFFMTEZ3YzBJZnJoY3R3UUViQUU1b3pnK1o0MlJ1ZWRUM1k2SldSVmJyM0I0aUdTWmNuK1NmNTVUampwV1FZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzU0MzcxNzM2CWZpbGU6dGVtcC1kb3dubG9hZC5leGUKMDFTdERIc3dIbWRpd2RDdmY2VHhLQ2d6b2lWc2pTZGJwOVN4RHc0L2JLWW9uMzlKVnhtbDFQa0E0c3c0SkN1OFFpM2JUUG1mdXd2Y3NnWTRQbytnRGc9PQo=",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSMTlOZ2VORzZOZ01vQUJBdjFlSFgzSnpZbjF0OUlLa1RkOWZKTVhXVzQ5RXcwUS9NczdTU1F0Y1gvaXB0NEs0bHhJM0hwdlc2REhieFdyd0pxdFNwN0k5V0xqQnlmK0E4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzU0NjEzNTAzCWZpbGU6dGVtcC1kb3dubG9hZC5leGUKZXkvNGpNY1FYNHhnUWorZTY4TjJsRDJKaXpIN25ERWpUa0owZDIyVng1VURrTFVTaVQ1SlFaL3IrL20xb1FjUFkvQW12Zm5ZTUJua3ZLWjVEbkpPRFE9PQo=",
       "url": "https://releases.servermint.app/servermint_0.1.2_x64-setup.exe"
     }
   }

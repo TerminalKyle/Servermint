@@ -7,17 +7,18 @@
           <v-icon color="primary" class="mr-3">mdi-update</v-icon>
           Update Available
         </v-card-title>
-        
+
         <v-card-text>
           <div class="mb-4">
             <p class="text-body-1 mb-2">
-              A new version of ServerMint is available: <strong>v{{ updateInfo.version }}</strong>
+              A new version of ServerMint is available:
+              <strong>v{{ updateInfo.version }}</strong>
             </p>
             <p class="text-caption text-medium-emphasis">
               {{ updateInfo.body || 'Bug fixes and improvements' }}
             </p>
           </div>
-          
+
           <v-progress-linear
             v-if="downloading"
             v-model="downloadProgress"
@@ -26,41 +27,33 @@
             rounded
             class="mb-3"
           ></v-progress-linear>
-          
+
           <div v-if="downloading" class="text-center text-caption text-medium-emphasis">
             Downloading update... {{ Math.round(downloadProgress) }}%
           </div>
         </v-card-text>
-        
+
         <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
           <v-btn
-            v-if="!downloading && !downloaded"
+            v-if="!downloading"
             color="primary"
-            @click="downloadUpdate"
+            @click="downloadAndInstallUpdate"
             :loading="downloading"
           >
             Download & Install
           </v-btn>
           <v-btn
-            v-if="downloaded"
-            color="success"
-            @click="installUpdate"
-            :loading="installing"
-          >
-            Install Now
-          </v-btn>
-          <v-btn
             variant="outlined"
             @click="dismissUpdate"
-            :disabled="downloading || installing"
+            :disabled="downloading"
           >
             Later
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
-    
+
     <!-- Update notification snackbar -->
     <v-snackbar
       v-model="showUpdateSnackbar"
@@ -72,29 +65,18 @@
         <v-icon class="mr-2">mdi-update</v-icon>
         <span>Update available: v{{ updateInfo.version }}</span>
       </div>
-      
+
       <template v-slot:actions>
-        <v-btn
-          variant="text"
-          @click="showUpdateDialog = true"
-        >
-          View
-        </v-btn>
-        <v-btn
-          variant="text"
-          @click="showUpdateSnackbar = false"
-        >
-          Dismiss
-        </v-btn>
+        <v-btn variant="text" @click="showUpdateDialog = true">View</v-btn>
+        <v-btn variant="text" @click="showUpdateSnackbar = false">Dismiss</v-btn>
       </template>
     </v-snackbar>
   </div>
 </template>
 
 <script>
-import { check } from '@tauri-apps/plugin-updater'
-import { invoke } from '@tauri-apps/api/core'
-import { store } from '../store.js'
+import { check, Update } from '@tauri-apps/plugin-updater';
+import { markRaw } from 'vue';
 
 export default {
   name: 'UpdateManager',
@@ -103,144 +85,101 @@ export default {
       showUpdateDialog: false,
       showUpdateSnackbar: false,
       downloading: false,
-      downloaded: false,
-      installing: false,
       downloadProgress: 0,
-      updateInfo: {
-        version: '',
-        body: '',
-        date: ''
-      },
-      update: null,
-      checkInterval: null,
-      lastCheckTime: 0
-    }
+      contentLength: null,
+      updateInfo: { version: '', body: '' },
+    };
   },
-  async mounted() {
-    // Check for updates on app start
-    await this.checkForUpdates();
-    
-    // Set up periodic update checking (every 30 minutes)
-    this.checkInterval = setInterval(() => {
-      this.checkForUpdates();
-    }, 30 * 60 * 1000);
+  created() {
+    // Store update resource outside of Vue's reactivity
+    this._updateResource = null;
+  },
+  mounted() {
+    // Only run inside Tauri; noop in plain browser
+    if (!this.isTauri()) return;
+    // Small delay to ensure backend is ready
+    setTimeout(() => this.checkForUpdates().catch(() => {}), 800);
   },
   beforeUnmount() {
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
-    }
+    this.cleanupUpdateResource();
   },
   methods: {
+    isTauri() {
+      return typeof window !== 'undefined' && (window.__TAURI__ || window.__TAURI_INTERNALS__);
+    },
     async checkForUpdates() {
       try {
-        const now = Date.now();
-        // Don't check too frequently (minimum 5 minutes between checks)
-        if (now - this.lastCheckTime < 5 * 60 * 1000) {
-          return;
-        }
-        
-        this.lastCheckTime = now;
-        
-        const update = await check();
-        
-        if (update) {
-          this.update = update;
-          this.updateInfo = {
-            version: update.version,
-            body: update.body,
-            date: update.date
-          };
-          
-          // Show notification
-          this.showUpdateSnackbar = true;
-          
-          // Auto-download if enabled in settings
-          if (this.shouldAutoDownload()) {
-            this.downloadUpdate(update);
-          }
-        }
-      } catch (error) {
-        console.error('Error checking for updates:', error);
+        const update = await check({ timeout: 30000 });
+        if (!update) return;
+
+        // Store the raw update instance
+        this._updateResource = markRaw(update);
+
+        this.updateInfo.version = update.version || '';
+        this.updateInfo.body = update.body || '';
+        this.showUpdateSnackbar = true;
+      } catch (err) {
+        // Silently ignore in dev/offline; optionally log
+        console.warn('Updater check failed:', err);
       }
     },
-    
-    shouldAutoDownload() {
-      // Check if auto-download is enabled in settings
-      return store.settings.general.autoDownloadUpdates !== false;
-    },
-    
-    async downloadUpdate(update) {
+    async downloadAndInstallUpdate() {
+      if (!this._updateResource) return;
       this.downloading = true;
       this.downloadProgress = 0;
-      this.showUpdateDialog = true;
-      
+      this.contentLength = null;
+
+      let downloaded = 0;
+
       try {
-        let downloaded = 0;
-        let contentLength = 0;
-        
-        // Download the update with progress tracking
-        await update.download((event) => {
-          switch (event.event) {
-            case 'Started':
-              contentLength = event.data.contentLength;
-              console.log(`Started downloading ${event.data.contentLength} bytes`);
-              break;
-            case 'Progress':
-              downloaded += event.data.chunkLength;
-              this.downloadProgress = Math.round((downloaded / contentLength) * 100);
-              console.log(`Downloaded ${downloaded} from ${contentLength}`);
-              break;
-            case 'Finished':
-              console.log('Download finished');
-              this.downloadProgress = 100;
-              break;
+        await this._updateResource.downloadAndInstall((evt) => {
+          if (evt.event === 'Started') {
+            this.contentLength = evt.data?.contentLength ?? null;
+            downloaded = 0;
+            this.downloadProgress = 0;
+          } else if (evt.event === 'Progress') {
+            downloaded += evt.data.chunkLength || 0;
+            if (this.contentLength && this.contentLength > 0) {
+              this.downloadProgress = Math.min(100, (downloaded / this.contentLength) * 100);
+            }
+          } else if (evt.event === 'Finished') {
+            this.downloadProgress = 100;
           }
-        });
-        
-        this.downloaded = true;
-        this.downloading = false;
-        
-        // Auto-install if enabled
-        if (this.shouldAutoInstall()) {
-          setTimeout(() => {
-            this.installUpdate();
-          }, 1000);
+        }, { timeout: 300000 });
+        // On Windows, app exits automatically during install (per docs).
+        // On other platforms, installation completes without mandatory restart.
+        this.showUpdateDialog = false;
+        this.showUpdateSnackbar = false;
+        if (window.showSuccess) {
+          window.showSuccess('Update installed', 'ServerMint will restart or be ready on next launch.');
         }
-      } catch (error) {
+      } catch (err) {
+        console.error('Update install failed:', err);
+        if (window.showError) {
+          window.showError('Update failed', String(err));
+        }
+      } finally {
         this.downloading = false;
-        console.error('Error downloading update:', error);
-        this.$emit('update-error', 'Failed to download update');
+        this.cleanupUpdateResource();
       }
     },
-    
-    shouldAutoInstall() {
-      // Check if auto-install is enabled in settings
-      return store.settings.general.autoInstallUpdates !== false;
-    },
-    
-    async installUpdate() {
-      this.installing = true;
-      
-      try {
-        // The update is already installed from the download process
-        console.log('Update installed successfully');
-        this.$emit('update-installed', 'Update installed successfully');
-        
-        // Relaunch the app
-        await invoke('plugin:process|relaunch');
-      } catch (error) {
-        this.installing = false;
-        console.error('Error installing update:', error);
-        this.$emit('update-error', 'Failed to install update');
-      }
-    },
-    
     dismissUpdate() {
       this.showUpdateDialog = false;
       this.showUpdateSnackbar = false;
+      this.cleanupUpdateResource();
+    },
+    async cleanupUpdateResource() {
+      try {
+        if (this._updateResource instanceof Update) {
+          await this._updateResource.close?.();
+        }
+      } catch (err) {
+        // Ignore cleanup errors - non-critical during unmount
+      }
+      this._updateResource = null;
     }
   }
-}
+};
 </script>
 
 <style scoped>
@@ -261,4 +200,4 @@ export default {
 .update-dialog .v-card-actions {
   border-top: 1px solid rgba(74, 222, 128, 0.1);
 }
-</style> 
+</style>
