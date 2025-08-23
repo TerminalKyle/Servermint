@@ -2,7 +2,7 @@
 
 A modern, open-source Minecraft server management application built with love, passion, and care using Tauri and Vue.js. ServerMint transforms your game development workflow by providing powerful tools that are easy to use, helping you create and manage game servers for development and multiplayer testing without the technical overwhelm.
 
-![ServerMint Screenshot](public/servermint.png)
+![ServerMint Screenshot](public/servermintbanner.png)
 
 ## What is ServerMint?
 
