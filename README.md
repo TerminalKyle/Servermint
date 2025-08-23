@@ -113,7 +113,6 @@ We maintain a welcoming and inclusive environment. Please be respectful and cons
 
 ## License
 
-[Add your license here]
 
 ## Support & Community
 
@@ -122,8 +121,8 @@ ServerMint is more than just software - it's a community of passionate developer
 ### Get Help
 
 - **Documentation**: [https://servermint.app/](https://servermint.app/)
-- **Discord Community**: [discord.gg/servermint](https://discord.gg/servermint)
-- **GitHub Issues**: [https://github.com/your-repo/issues](https://github.com/TerminalKyle/Servermint/issues)
+- **Discord Community**: [discord.gg/servermint](https://discord.gg/A6mqUNUk)
+- **GitHub Issues**: [https://github.com/TerminalKyle/Servermint/issues](https://github.com/TerminalKyle/Servermint/issues)
 - **Website**: [https://servermint.app/](https://servermint.app/)
 
 ### Stay Connected
