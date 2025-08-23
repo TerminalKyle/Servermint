@@ -113,6 +113,7 @@ We maintain a welcoming and inclusive environment. Please be respectful and cons
 
 ## License
 
+[Apache License 2.0](https://github.com/TerminalKyle/Servermint/blob/main/LICENSE)
 
 ## Support & Community
 
