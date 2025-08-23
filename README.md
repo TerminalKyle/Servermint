@@ -123,7 +123,7 @@ ServerMint is more than just software - it's a community of passionate developer
 
 - **Documentation**: [https://servermint.app/](https://servermint.app/)
 - **Discord Community**: [discord.gg/servermint](https://discord.gg/servermint)
-- **GitHub Issues**: [https://github.com/your-repo/issues](https://github.com/your-repo/issues)
+- **GitHub Issues**: [https://github.com/your-repo/issues](https://github.com/TerminalKyle/Servermint/issues)
 - **Website**: [https://servermint.app/](https://servermint.app/)
 
 ### Stay Connected
