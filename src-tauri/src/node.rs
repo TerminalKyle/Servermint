@@ -40,8 +40,8 @@ pub struct Node {
     pub status: NodeStatus,
     pub config: NodeConfig,
     pub last_seen: Option<DateTime<Utc>>,
-    pub servers: Vec<String>, // Server IDs
-    pub metrics: Option<NodeMetrics>, // Add metrics field
+    pub servers: Vec<String>,   
+    pub metrics: Option<NodeMetrics>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,12 +55,11 @@ pub struct NodeMetrics {
 pub struct NodeManager {
     nodes: HashMap<String, Node>,
     server_manager: Arc<Mutex<ServerManager>>,
-    pub active_tokens: HashMap<String, (String, DateTime<Utc>)>, // token -> (node_id, expiry)
+    pub active_tokens: HashMap<String, (String, DateTime<Utc>)>,
 }
 
 impl NodeManager {
     pub fn new(server_manager: Arc<Mutex<ServerManager>>) -> Self {
-        // Create default local node
         let mut nodes = HashMap::new();
         let local_node = Node {
             id: "local".to_string(),
@@ -89,10 +88,8 @@ impl NodeManager {
     }
     
     pub fn list_nodes(&self) -> Vec<Node> {
-        // Update local node servers
         let mut nodes = self.nodes.values().cloned().collect::<Vec<_>>();
         
-        // Update local node with current servers
         if let Some(local_node) = nodes.iter_mut().find(|n| n.id == "local") {
             if let Ok(server_manager) = self.server_manager.lock() {
                 let server_infos = server_manager.list_servers();
@@ -136,9 +133,7 @@ impl NodeManager {
     
     pub fn generate_pairing_token(&mut self) -> String {
         let token = Uuid::new_v4().to_string();
-        // Token valid for 10 minutes
         let expiry = Utc::now() + chrono::Duration::minutes(10);
-        // We'll associate the token with a node ID when the node connects
         self.active_tokens.insert(token.clone(), ("pending".to_string(), expiry));
         token
     }
@@ -164,16 +159,12 @@ impl NodeManager {
     }
 
     pub fn validate_token(&mut self, token: &str) -> Option<String> {
-        // Check if token exists in active_tokens
         if let Some((node_id, expiry)) = self.active_tokens.get(token) {
             if expiry > &Utc::now() {
                 if node_id == "pending" {
-                    // Generate a new node ID
                     let node_id = format!("node-{}", Uuid::new_v4().to_string());
-                    // Update token with node ID
                     self.active_tokens.insert(token.to_string(), (node_id.clone(), *expiry));
                     
-                    // Create a new node
                     let node = Node {
                         id: node_id.clone(),
                         name: format!("VPS Node {}", &node_id[5..11]),
@@ -192,7 +183,6 @@ impl NodeManager {
                         metrics: None,
                     };
                     
-                    // Add the node
                     if let Err(e) = self.add_node(node) {
                         error!("Failed to create node for token {}: {}", token, e);
                         return None;
@@ -205,15 +195,11 @@ impl NodeManager {
             }
         }
         
-        // If token not found in active_tokens, check if it's a pre-generated token
         if token.starts_with("sm-") {
-            // Generate a new node ID
             let node_id = format!("node-{}", Uuid::new_v4().to_string());
-            // Add token to active_tokens with 10 minute expiry
             let expiry = Utc::now() + chrono::Duration::minutes(10);
             self.active_tokens.insert(token.to_string(), (node_id.clone(), expiry));
             
-            // Create a new node
             let node = Node {
                 id: node_id.clone(),
                 name: format!("VPS Node {}", &node_id[5..11]),
@@ -232,7 +218,6 @@ impl NodeManager {
                 metrics: None,
             };
             
-            // Add the node
             if let Err(e) = self.add_node(node) {
                 error!("Failed to create node for token {}: {}", token, e);
                 return None;
@@ -250,7 +235,6 @@ impl NodeManager {
     }
 }
 
-// Tauri command handlers
 type NodeManagerState<'a> = State<'a, Arc<Mutex<NodeManager>>>;
 
 #[tauri::command]
@@ -293,7 +277,6 @@ pub fn generate_pairing_token(state: NodeManagerState) -> Result<String, String>
 pub fn check_node_connected(state: NodeManagerState, token: String) -> Result<bool, String> {
     let mut node_manager = state.lock().map_err(|e| format!("Failed to lock node manager: {}", e))?;
     
-    // Check if token is valid in the node manager
     if let Some(node_id) = node_manager.validate_token(&token) {
         info!("Token {} is valid in node manager, associated with node ID {}", token, node_id);
         return Ok(true);
@@ -301,7 +284,6 @@ pub fn check_node_connected(state: NodeManagerState, token: String) -> Result<bo
         info!("Token {} not found in node manager", token);
     }
     
-    // Token not found or node not connected
     Ok(false)
 }
 
@@ -315,21 +297,16 @@ pub struct NodeInfoResponse {
 pub fn get_node_info_by_token(state: NodeManagerState, token: String) -> Result<NodeInfoResponse, String> {
     let mut node_manager = state.lock().map_err(|e| format!("Failed to lock node manager: {}", e))?;
     
-    // Check if token is valid and has been used by a node to connect
     if let Some(node_id) = node_manager.validate_token(&token) {
-        // Check if node exists with this ID
         if let Some(node) = node_manager.get_node(&node_id) {
-            // Return node information
             Ok(NodeInfoResponse {
                 id: node_id,
                 hostname: node.config.hostname.clone(),
             })
         } else {
-            // Node ID exists but node doesn't exist yet
             Err(format!("Node info not available for token: {}", token))
         }
     } else {
-        // Token is invalid or not used yet
         Err(format!("Invalid or unused token: {}", token))
     }
 } 

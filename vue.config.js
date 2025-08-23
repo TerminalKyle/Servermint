@@ -1,6 +1,5 @@
 const { defineConfig } = require('@vue/cli-service')
 
-// Get the host from environment variable for mobile development
 const host = process.env.TAURI_DEV_HOST
 
 module.exports = defineConfig({

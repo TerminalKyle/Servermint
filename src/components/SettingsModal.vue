@@ -37,7 +37,6 @@
           </v-tabs>
           
           <v-window v-model="activeTab" class="mt-4">
-            <!-- General Settings -->
             <v-window-item value="general">
               <div class="settings-section">
                 <h3 class="text-subtitle-1 font-weight-bold mb-3">Application</h3>
@@ -115,7 +114,6 @@
               </div>
             </v-window-item>
             
-            <!-- Appearance Settings -->
             <v-window-item value="appearance">
               <div class="settings-section">
                 <h3 class="text-subtitle-1 font-weight-bold mb-3">Theme</h3>
@@ -149,7 +147,6 @@
               </div>
             </v-window-item>
             
-            <!-- Java Settings -->
             <v-window-item value="java">
               <div class="settings-section">
                 <h3 class="text-subtitle-1 font-weight-bold mb-3">Java Runtime</h3>
@@ -214,7 +211,6 @@
               </div>
             </v-window-item>
             
-            <!-- Advanced Settings -->
             <v-window-item value="advanced">
               <div class="settings-section">
                 <h3 class="text-subtitle-1 font-weight-bold mb-3">Data & Storage</h3>
@@ -343,19 +339,15 @@ export default {
   },
   methods: {
     selectDefaultPath() {
-      // In a real app, this would open a file picker
       console.log('Select default server path');
     },
     selectJavaPath() {
-      // In a real app, this would open a file picker
       console.log('Select Java path');
     },
     selectDataPath() {
-      // In a real app, this would open a file picker
       console.log('Select data path');
     },
-    saveSettings() {
-      // In a real app, this would save settings to storage
+    saveSettings() {    
       console.log('Saving settings:', this.settings);
       this.$emit('settings-updated', this.settings);
       this.dialog = false;

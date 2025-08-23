@@ -19,11 +19,9 @@ impl SftpConfig {
         let batch_path = temp_dir.join("sftp_commands.txt");
         let ps_path = temp_dir.join("sftp_script.ps1");
 
-        // Create batch file with commands
         fs::write(&batch_path, commands.join("\n"))
             .map_err(|e| format!("Failed to create batch file: {}", e))?;
 
-        // Create PowerShell script that handles password input
         let ps_script = format!(
             r#"
             $password = "{}"
@@ -33,7 +31,6 @@ impl SftpConfig {
             $port = {}
             $batchFile = "{}"
             
-            # Download plink.exe and psftp.exe if not exists
             $psftp = Join-Path $env:TEMP "psftp.exe"
             $plink = Join-Path $env:TEMP "plink.exe"
             if (-not (Test-Path $psftp)) {{
@@ -45,12 +42,10 @@ impl SftpConfig {
                 Invoke-WebRequest -Uri $url -OutFile $plink
             }}
 
-            # Get host key using plink in verbose mode
             $plinkOutput = & $plink -v -P $port -pw $password "$username@$sftpHost" "exit" 2>&1
             $hostKey = $plinkOutput | Select-String "Server host key is" | ForEach-Object {{ $_.ToString().Split(":")[1].Trim() }}
             
             if ($hostKey) {{
-                # Create registry entry to auto-accept host key
                 $regPath = "HKCU:\Software\SimonTatham\PuTTY\SshHostKeys"
                 $keyName = "ssh-ed25519@$($port):$($sftpHost)"
                 
@@ -60,7 +55,6 @@ impl SftpConfig {
                 New-ItemProperty -Path $regPath -Name $keyName -Value $hostKey -PropertyType String -Force | Out-Null
             }}
 
-            # Run psftp command in batch mode
             $output = & $psftp -P $port -pw $password -batch -b $batchFile "$username@$sftpHost" 2>&1
             $output | ForEach-Object {{ Write-Host $_ }}
             "#,
@@ -87,15 +81,12 @@ impl SftpConfig {
             .output()
             .map_err(|e| format!("Failed to execute PowerShell script: {}", e))?;
 
-        // Combine stdout and stderr
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         let combined = format!("{}{}", stdout, stderr);
 
-        // Log the output for debugging
         println!("PowerShell output: {}", combined);
 
-        // Check for common error patterns
         if combined.contains("No such host is known") {
             return Err("Could not resolve hostname. Please check your SFTP host.".to_string());
         }
@@ -109,7 +100,6 @@ impl SftpConfig {
             return Err(format!("SFTP command failed: {}", combined.trim()));
         }
 
-        // If we have any output that looks like a successful connection, consider it success
         if combined.contains("Remote working directory is") || 
            combined.contains("-rw-") || 
            combined.contains("-r--") || 
@@ -132,16 +122,13 @@ impl SftpConfig {
 #[tauri::command]
 pub async fn run_sftp_command(config: SftpConfig, command: String) -> Result<String, String> {
     task::spawn_blocking(move || {
-        // Create temporary files with the provided command
         let (batch_path, ps_path) = config.create_temp_files(&[
             &command,
             "exit"
         ])?;
 
-        // Run the command and get output
         let result = config.run_sftp_command(&batch_path, &ps_path);
 
-        // Clean up temporary files
         config.cleanup_temp_files(&[&batch_path, &ps_path]);
 
         result
@@ -151,13 +138,10 @@ pub async fn run_sftp_command(config: SftpConfig, command: String) -> Result<Str
 #[tauri::command]
 pub async fn test_sftp_connection(config: SftpConfig) -> Result<bool, String> {
     task::spawn_blocking(move || {
-        // Create temporary files
         let (batch_path, ps_path) = config.create_temp_files(&["pwd", "exit"])?;
 
-        // Run the command and check result
         let result = config.run_sftp_command(&batch_path, &ps_path);
 
-        // Clean up temporary files
         config.cleanup_temp_files(&[&batch_path, &ps_path]);
 
         match result {
@@ -170,27 +154,22 @@ pub async fn test_sftp_connection(config: SftpConfig) -> Result<bool, String> {
 #[tauri::command]
 pub async fn upload_file_sftp(config: SftpConfig, local_path: String, remote_path: String) -> Result<bool, String> {
     task::spawn_blocking(move || {
-        // Create temporary files with upload command
         let (batch_path, ps_path) = config.create_temp_files(&[
             &format!("put \"{}\" \"{}\"", local_path, remote_path),
             "exit"
         ])?;
 
-        // Run the command and check result
         let result = config.run_sftp_command(&batch_path, &ps_path);
 
-        // Clean up temporary files
         config.cleanup_temp_files(&[&batch_path, &ps_path]);
 
         match result {
             Ok(output) => {
-                // Check for common error messages in the output
                 if output.contains("no such file") || 
                    output.contains("permission denied") || 
                    output.contains("failure") {
                     Err(format!("Upload failed: {}", output))
                 } else {
-                    // If no error messages found, consider it a success
                     Ok(true)
                 }
             },
@@ -202,16 +181,13 @@ pub async fn upload_file_sftp(config: SftpConfig, local_path: String, remote_pat
 #[tauri::command]
 pub async fn download_file_sftp(config: SftpConfig, remote_path: String, local_path: String) -> Result<bool, String> {
     task::spawn_blocking(move || {
-        // Create temporary files
         let (batch_path, ps_path) = config.create_temp_files(&[
             &format!("get \"{}\" \"{}\"", remote_path, local_path),
             "exit"
         ])?;
 
-        // Run the command and check result
         let result = config.run_sftp_command(&batch_path, &ps_path);
 
-        // Clean up temporary files
         config.cleanup_temp_files(&[&batch_path, &ps_path]);
 
         match result {
@@ -224,25 +200,20 @@ pub async fn download_file_sftp(config: SftpConfig, remote_path: String, local_p
 #[tauri::command]
 pub async fn list_remote_files(config: SftpConfig, path: String) -> Result<Vec<String>, String> {
     task::spawn_blocking(move || {
-        // Create temporary files with ls command
         let (batch_path, ps_path) = config.create_temp_files(&[
-            "ls",   // List files
+            "ls",
             "exit"
         ])?;
 
-        // Run the command and parse output
         let result = config.run_sftp_command(&batch_path, &ps_path);
 
-        // Clean up temporary files
         config.cleanup_temp_files(&[&batch_path, &ps_path]);
 
         match result {
             Ok(output) => {
-                // Parse ls output into filenames
                 let files: Vec<String> = output.lines()
                     .filter(|line| {
                         let line = line.trim();
-                        // Skip empty lines and command output
                         !line.is_empty() && 
                         !line.starts_with("Remote working directory") &&
                         !line.starts_with("Using username") &&
@@ -251,11 +222,9 @@ pub async fn list_remote_files(config: SftpConfig, path: String) -> Result<Vec<S
                         !line.starts_with("Listing directory")
                     })
                     .map(|line| {
-                        // If it's a file listing with permissions, get just the filename
                         if line.contains("-rw-") || line.contains("-r--") || line.contains("drwx") || line.contains("-rwx") {
                             line.split_whitespace().last().unwrap_or(line).to_string()
                         } else {
-                            // Otherwise just use the whole line (for simple listings)
                             line.trim().to_string()
                         }
                     })

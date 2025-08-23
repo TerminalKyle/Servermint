@@ -80,7 +80,6 @@ export default {
       searchQuery: '',
       selectedIndex: 0,
       commands: [
-        // Server Management
         {
           id: 'create-server',
           title: 'Create Server',
@@ -104,7 +103,6 @@ export default {
           action: () => this.$router.push({ name: 'Servers' })
         },
         
-        // Quick Actions
         {
           id: 'start-all-servers',
           title: 'Start All Servers',
@@ -130,7 +128,6 @@ export default {
           action: async () => await this.backupAllServers()
         },
         
-        // Settings
         {
           id: 'open-settings',
           title: 'Open Settings',
@@ -146,7 +143,6 @@ export default {
           action: async () => await this.checkUpdates()
         },
         
-        // File Operations
         {
           id: 'open-file-manager',
           title: 'Open File Manager',
@@ -163,7 +159,6 @@ export default {
           action: () => this.createBackup()
         },
         
-        // System
         {
           id: 'restart-app',
           title: 'Restart Application',
@@ -181,7 +176,6 @@ export default {
           action: async () => await this.quitApp()
         },
         
-        // Privacy
         {
           id: 'toggle-ips',
           title: store.settings.general.showServerIPs ? 'Hide Server IPs' : 'Show Server IPs',
@@ -208,10 +202,8 @@ export default {
     }
   },
   mounted() {
-    // Add global keyboard listener
     document.addEventListener('keydown', this.handleGlobalKeyDown);
     
-    // Listen for global show/hide events
     window.addEventListener('show-mint-menu', this.showMenu);
     window.addEventListener('hide-mint-menu', this.hideMenu);
   },
@@ -222,13 +214,11 @@ export default {
   },
   methods: {
     handleGlobalKeyDown(event) {
-      // Cmd+K (Mac) or Ctrl+K (Windows/Linux)
       if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
         event.preventDefault();
         this.toggleMenu();
       }
       
-      // Escape to close
       if (event.key === 'Escape' && this.show) {
         event.preventDefault();
         this.hideMenu();
@@ -263,7 +253,6 @@ export default {
       this.searchQuery = '';
       this.selectedIndex = 0;
       
-      // Focus the search input
       this.$nextTick(() => {
         if (this.$refs.searchInput) {
           this.$refs.searchInput.focus();
@@ -283,28 +272,24 @@ export default {
         await command.action();
         this.hideMenu();
         
-        // Refresh server list for server-related operations
         if (['start-all-servers', 'stop-all-servers', 'backup-all-servers', 'refresh-servers'].includes(command.id)) {
           if (this.$root && this.$root.store && this.$root.store.loadServers) {
             await this.$root.store.loadServers();
           }
         }
         
-        // Show success toast
         if (this.$root && this.$root.store && this.$root.store.showToast) {
           this.$root.store.showToast(`"${command.title}" completed successfully.`, 'success');
         }
       } catch (error) {
         console.error(`[MintMenu] Error executing command: ${error}`);
         
-        // Show error toast
         if (this.$root && this.$root.store && this.$root.store.showToast) {
           this.$root.store.showToast(`Failed to execute "${command.title}": ${error.message}`, 'error');
         }
       }
     },
     
-    // Command implementations
     async startAllServers() {
       const result = await store.startAllServers();
       if (result.count === 0) {
@@ -335,7 +320,6 @@ export default {
     },
     
     openFileManager() {
-      // Navigate to the first server's file manager
       const firstServer = store.servers[0];
       if (firstServer) {
         this.$router.push({
@@ -349,7 +333,6 @@ export default {
     },
     
     createBackup() {
-      // Navigate to backup creation
       this.$router.push({ name: 'Backups' });
     },
     
@@ -362,8 +345,7 @@ export default {
     },
 
     toggleServerIPs() {
-      store.toggleServerIPs();
-      // Update the command title and description
+      store.toggleServerIPs();      
       const toggleCommand = this.commands.find(cmd => cmd.id === 'toggle-ips');
       if (toggleCommand) {
         toggleCommand.title = store.settings.general.showServerIPs ? 'Hide Server IPs' : 'Show Server IPs';

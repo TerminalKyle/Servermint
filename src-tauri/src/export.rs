@@ -38,7 +38,6 @@ pub async fn export_server_zip(server_id: String, files: Vec<FileToZip>, server_
         .compression_method(zip::CompressionMethod::Deflated)
         .unix_permissions(0o755);
 
-    // Add metadata file
     let metadata = serde_json::json!({
         "server_id": server_id,
         "server_name": server_name,
@@ -48,7 +47,7 @@ pub async fn export_server_zip(server_id: String, files: Vec<FileToZip>, server_
     zip.start_file("servermint.json", options).map_err(|e| e.to_string())?;
     zip.write_all(metadata.to_string().as_bytes()).map_err(|e| e.to_string())?;
 
-    // Add server files
+        
     for file_info in files {
         let mut file = File::open(&file_info.path).map_err(|e| e.to_string())?;
         let mut buffer = Vec::new();
@@ -66,22 +65,18 @@ pub async fn export_server_zip(server_id: String, files: Vec<FileToZip>, server_
 pub async fn import_server_from_zip(zip_path: String, target_directory: String) -> Result<ServerMetadata, String> {
     println!("Importing server from ZIP: {}", zip_path);
     
-    // Open the ZIP file
     let file = File::open(&zip_path).map_err(|e| format!("Failed to open ZIP file: {}", e))?;
     let mut archive = ZipArchive::new(file).map_err(|e| format!("Failed to read ZIP archive: {}", e))?;
     
-    // Create target directory
     std::fs::create_dir_all(&target_directory).map_err(|e| format!("Failed to create target directory: {}", e))?;
     
     let mut metadata: Option<ServerMetadata> = None;
     let mut extracted_files = Vec::new();
     
-    // Extract all files
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(|e| format!("Failed to access file in ZIP: {}", e))?;
         let file_name = file.name().to_string();
         
-        // Skip macOS metadata files
         if file_name.starts_with("__MACOSX/") || file_name.starts_with(".DS_Store") {
             continue;
         }
@@ -89,21 +84,17 @@ pub async fn import_server_from_zip(zip_path: String, target_directory: String) 
         let outpath = PathBuf::from(&target_directory).join(&file_name);
         
         if file_name.ends_with('/') {
-            // Create directory
             std::fs::create_dir_all(&outpath).map_err(|e| format!("Failed to create directory: {}", e))?;
         } else {
-            // Create parent directory if it doesn't exist
             if let Some(p) = outpath.parent() {
                 if !p.exists() {
                     std::fs::create_dir_all(p).map_err(|e| format!("Failed to create parent directory: {}", e))?;
                 }
             }
             
-            // Extract file
             let mut outfile = File::create(&outpath).map_err(|e| format!("Failed to create file: {}", e))?;
             std::io::copy(&mut file, &mut outfile).map_err(|e| format!("Failed to write file: {}", e))?;
             
-            // If this is the metadata file, read it
             if file_name == "servermint.json" {
                 let mut content = String::new();
                 file.read_to_string(&mut content).map_err(|e| format!("Failed to read metadata: {}", e))?;
@@ -117,7 +108,6 @@ pub async fn import_server_from_zip(zip_path: String, target_directory: String) 
         }
     }
     
-    // If no ServerMint metadata found, try to detect launcher type
     if metadata.is_none() {
         metadata = Some(detect_launcher_type(&target_directory, extracted_files)?);
     }
@@ -126,13 +116,10 @@ pub async fn import_server_from_zip(zip_path: String, target_directory: String) 
 }
 
 fn detect_launcher_type(server_path: &str, files: Vec<FileToZip>) -> Result<ServerMetadata, String> {
-    // Check for common launcher indicators
     let server_properties_path = format!("{}/server.properties", server_path);
     
-    // Try to read server.properties to get server name
     let server_name = if std::path::Path::new(&server_properties_path).exists() {
         if let Ok(content) = std::fs::read_to_string(&server_properties_path) {
-            // Extract MOTD which often contains server name
             for line in content.lines() {
                 if line.starts_with("motd=") {
                     let motd = line[5..].trim();

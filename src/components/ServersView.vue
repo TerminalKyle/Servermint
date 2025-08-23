@@ -1,13 +1,11 @@
 <template>
   <div class="server-view">
-    <!-- Initial Loading Screen -->
     <div v-if="showInitialLoading" class="initial-loading" :class="{ 'fade-out': isLoadingFadingOut }">
       <div class="loading-logo">
         <img src="/servermint.png" alt="ServerMint Logo" />
       </div>
     </div>
 
-    <!-- Filter tabs -->
     <div class="filter-section mb-4">
       <div class="d-flex align-center">
         <v-btn-toggle v-model="activeTab" color="primary" density="comfortable" mandatory rounded="lg" class="filter-tabs">
@@ -18,7 +16,6 @@
       </div>
     </div>
 
-    <!-- Search and filter bar -->
     <div class="d-flex align-center mb-6 search-filter-container">
       <v-text-field
         v-model="searchQuery"
@@ -342,14 +339,12 @@ export default {
     filteredServers() {
       let filtered = [...this.servers];
       
-      // Filter by tab
       if (this.activeTab === 'downloaded') {
         filtered = filtered.filter(server => server.status !== 'installing');
       } else if (this.activeTab === 'custom') {
         filtered = filtered.filter(server => server.type !== 'Vanilla');
       }
       
-      // Filter by search
       if (this.searchQuery) {
         const query = this.searchQuery.toLowerCase();
         filtered = filtered.filter(server => 
@@ -364,18 +359,14 @@ export default {
   },
   methods: {
     async startLoadingAnimation() {
-      if (!this.showInitialLoading) return; // Skip if not showing loading screen
+      if (!this.showInitialLoading) return; 
       
-      // Mark as visited
       localStorage.setItem('hasVisitedServers', 'true');
       
-      // Wait for a minimum time to show the loading screen
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Start fade out
       this.isLoadingFadingOut = true;
       
-      // Remove loading screen after fade out
       setTimeout(() => {
         this.showInitialLoading = false;
       }, 500);
@@ -390,7 +381,6 @@ export default {
     },
     
     handleServerCreated() {
-      // Refresh the server list when a new server is created
       this.loadServers();
     },
     
@@ -417,26 +407,22 @@ export default {
       return icons[type] || 'mdi-minecraft';
     },
     openServer(server) {
-      if (server.status === 'installing') return; // Don't open if still installing
+      if (server.status === 'installing') return;
       console.log('Opening server:', server.name);
       this.navigateToServerManagement(server);
     },
     playServer(server) {
-      if (server.status === 'installing') return; // Don't play if still installing
+      if (server.status === 'installing') return; 
       
       if (server.status === 'offline') {
-        // Start the server first
         this.store.startServer(server.id).then(() => {
-          // Navigate to console tab after starting
           this.navigateToServerManagement(server, 'console');
         });
       } else {
-        // Server is already running, just navigate to console
         this.navigateToServerManagement(server, 'console');
       }
     },
     navigateToServerManagement(server, activeTab = 'files') {
-      // Navigate to the server management view with the selected server
       this.$router.push({
         name: 'ServerManagement',
         params: { serverId: server.id },
@@ -444,15 +430,13 @@ export default {
       });
     },
     showContextMenu(event, server) {
-      if (server.status === 'installing') return; // Don't show context menu if still installing
+      if (server.status === 'installing') return; 
       
-      // Position the menu at the mouse position
       this.contextMenu.x = event.clientX;
       this.contextMenu.y = event.clientY;
       this.contextMenu.server = server;
       this.contextMenu.show = true;
       
-      // Prevent default browser context menu
       event.preventDefault();
     },
     hideContextMenu() {
@@ -513,12 +497,10 @@ export default {
       if (this.contextMenu.server) {
         const server = this.contextMenu.server;
         
-        // Show creating backup toast and set exporting state
         window.showInfo('Creating Backup', `Creating backup of "${server.name}"...`);
         this.exportingServerId = server.id;
         
         try {
-          // Get all server files recursively
           const result = await this.store.getServerFilesRecursive(server.id);
           console.log('Files to export:', result);
           console.log('Sample file object:', result.files[0]);
@@ -527,18 +509,15 @@ export default {
             throw new Error('Failed to get server files');
           }
           
-          // Create file list for export
           const filesToExport = result.files.map(file => ({
-            name: file.relativePath || file.name,  // Use relative path for name to preserve structure
-            path: file.fullPath || `${server.path}/${file.relativePath || file.name}`  // Use full path for actual file location
+            name: file.relativePath || file.name, 
+            path: file.fullPath || `${server.path}/${file.relativePath || file.name}` 
           }));
           
           console.log('Exporting files:', filesToExport);
           
-          // Filter out directories and map files
-          // Filter out directories and map files for export
           const exportFiles = result.files
-            .filter(file => !file.isDirectory) // Only include files, not directories
+            .filter(file => !file.isDirectory) 
             .map(file => ({
               name: file.name,
               path: `${server.path}/${file.name}`
@@ -546,7 +525,6 @@ export default {
 
           console.log('Filtered files to export:', exportFiles.length);
           
-          // Call export function with full paths
           await invoke('export_server_zip', {
             serverId: server.id,
             files: exportFiles,
@@ -572,7 +550,6 @@ export default {
     },
     
     restartGuide() {
-      // Emit event to parent to restart guide
       this.$emit('restart-guide');
     },
     
@@ -587,12 +564,10 @@ export default {
         const result = await this.store.deleteServer(this.serverToDelete.id);
         
         if (result.success) {
-          // Show success toast
           if (window.showSuccess) {
             window.showSuccess('Server Deleted', `"${this.serverToDelete.name}" has been removed.`);
           }
         } else {
-          // Show error toast
           if (window.showError) {
             window.showError('Delete Failed', `Failed to delete server: ${result.error}`);
           }
@@ -708,7 +683,6 @@ export default {
   position: relative;
 }
 
-/* Initial Loading Screen */
 .initial-loading {
   position: fixed;
   top: 0;
@@ -719,15 +693,15 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 99999; /* Increased z-index to ensure it's above everything */
-  backdrop-filter: blur(15px); /* Increased blur effect */
-  -webkit-backdrop-filter: blur(15px); /* For Safari support */
+  z-index: 99999; 
+  backdrop-filter: blur(15px); 
+  -webkit-backdrop-filter: blur(15px); 
   opacity: 1;
   transition: opacity 0.5s ease;
   margin: 0;
   padding: 0;
-  left: 0 !important; /* Force it to cover the entire screen */
-  transform: translateX(0) !important; /* Ensure no transform affects it */
+  left: 0 !important; 
+  transform: translateX(0) !important; 
 }
 
 .initial-loading.fade-out {
@@ -736,10 +710,10 @@ export default {
 }
 
 .loading-logo {
-  width: 180px; /* Increased from 120px */
-  height: 180px; /* Increased from 120px */
+  width: 180px; 
+  height: 180px; 
   animation: spinLogo 2s ease-in-out infinite;
-  filter: drop-shadow(0 0 20px rgba(74, 222, 128, 0.3)); /* Added glow effect */
+  filter: drop-shadow(0 0 20px rgba(74, 222, 128, 0.3)); 
 }
 
 .loading-logo img {
@@ -907,7 +881,6 @@ export default {
   }
 }
 
-/* Custom context menu styling */
 .context-menu {
   position: fixed;
   z-index: 1000;
@@ -941,7 +914,6 @@ export default {
   color: #ef4444;
 }
 
-/* Error message styling */
 .error-message {
   color: #ef4444;
   font-size: 12px;
@@ -950,7 +922,6 @@ export default {
   align-items: center;
 }
 
-/* View toggle styles */
 .view-toggle {
   background-color: rgba(30, 30, 30, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -966,7 +937,6 @@ export default {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Server card styles for different views */
 .server-list.list .server-card {
   margin-bottom: 8px;
 }
@@ -979,7 +949,6 @@ export default {
   transform: translateX(4px);
 }
 
-/* Responsive grid */
 @media (min-width: 960px) {
   .server-list.grid .server-card {
     height: 100%;

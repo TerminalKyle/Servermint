@@ -296,26 +296,22 @@ export default {
     return {
       tab: 'general',
       settings: {
-        // General settings
         defaultServerDir: 'C:/minecraft/servers',
         defaultBackupDir: 'C:/minecraft/backups',
         startWithSystem: false,
         minimizeToTray: true,
         theme: 'Purple Dark',
         
-        // Java settings
         javaPath: 'C:/Program Files/Java/jre1.8.0_301/bin/java.exe',
         jvmArgs: '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200',
         minMemory: 1024,
         maxMemory: 4096,
         
-        // Minecraft settings
         minecraftDir: 'C:/Users/username/AppData/Roaming/.minecraft',
         defaultServerSoftware: 'Paper',
         defaultMinecraftVersion: '1.20.1',
         autoDownloadServerSoftware: true,
-        
-        // Advanced settings
+
         logLevel: 'Info',
         enableCrashReporting: true,
         checkForUpdates: true
@@ -329,20 +325,16 @@ export default {
     }
   },
   methods: {
-    saveSettings() {
-      // In a real app, this would communicate with Tauri to save settings
+    saveSettings() {  
       console.log('Saving settings', this.settings)
     },
     resetTab() {
-      // Reset only the current tab's settings
       console.log('Reset tab', this.tab)
     },
     resetSettings() {
-      // Reset all settings
       console.log('Reset all settings')
     },
     detectJava() {
-      // Auto-detect Java installations
       console.log('Detecting Java installations')
     }
   }

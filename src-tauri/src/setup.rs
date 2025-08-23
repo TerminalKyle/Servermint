@@ -2,14 +2,12 @@ use std::fs;
 use std::path::Path;
 
 pub fn ensure_app_directories() -> Result<(), Box<dyn std::error::Error>> {
-    // Create the main application directory
     let app_dir = Path::new("C:/servermint");
     if !app_dir.exists() {
         fs::create_dir_all(app_dir)?;
         println!("Created main application directory: {:?}", app_dir);
     }
 
-    // Create the servers directory
     let servers_dir = app_dir.join("servers");
     if !servers_dir.exists() {
         fs::create_dir_all(&servers_dir)?;

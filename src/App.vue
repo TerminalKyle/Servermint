@@ -1,27 +1,21 @@
 <template>
-  <!-- Splash screen -->
   <SplashScreen 
     v-if="shouldShowSplash" 
     @animation-complete="onSplashComplete"
   />
   
-  <!-- Installer view for first run -->
   <InstallerView 
     v-if="showInstaller && !shouldShowSplash" 
     @installation-complete="onInstallationComplete"
   />
   
-  <!-- Main app -->
   <v-app v-else-if="!shouldShowSplash" class="app-bg">
-    <!-- MintMenu - Global Command Palette -->
     <MintMenu />
-    <!-- Green glow elements -->
     <div class="glow-effect"></div>
     <div class="glow-effect-2"></div>
     <div class="glow-effect-3"></div>
     <div class="glow-effect-4"></div>
     
-    <!-- Left sidebar -->
     <v-navigation-drawer
       :model-value="true"
       width="80"
@@ -137,7 +131,6 @@
         
         <v-spacer></v-spacer>
         
-        <!-- MintMenu hint -->
         <div class="mint-menu-hint">
           <div class="hint-text">
             <span class="hint-label">Quick Actions</span>
@@ -161,7 +154,6 @@
       </div>
     </v-navigation-drawer>
 
-    <!-- Main content area -->
     <v-main class="main-content">
       <v-container fluid class="pa-6 main-container">
         <div class="d-flex align-center mb-6">
@@ -207,16 +199,13 @@
       </v-container>
     </v-main>
     
-    <!-- Toast notifications -->
     <ToastNotification />
     
-    <!-- Update manager -->
     <UpdateManager 
       @update-error="handleUpdateError"
       @update-installed="handleUpdateInstalled"
     />
     
-    <!-- Guide overlay -->
     <GuideOverlay ref="guideOverlay" />
   </v-app>
 </template>
@@ -264,7 +253,6 @@ export default {
       return titles[path] || 'ServerMint';
     },
     shouldShowSplash() {
-      // Check if user has disabled splash screen in settings
       return this.showSplash;
     },
     isMac() {
@@ -284,7 +272,6 @@ export default {
     }
   },
   async mounted() {
-    // Load servers from backend when app starts (after splash)
     console.log('App mounted, loading servers...');
     try {
       await this.store.loadServers();
@@ -300,12 +287,10 @@ export default {
       this.showSplash = false;
       console.log('showSplash is now:', this.showSplash);
       console.log('shouldShowSplash is now:', this.shouldShowSplash);
-      // Check if this is the first run after splash
       this.checkFirstRun();
     },
     
     async checkFirstRun() {
-      // Check if this is the first time running the app
       if (this.store.settings.general.firstRun !== false) {
         this.showInstaller = true;
       }
@@ -313,13 +298,11 @@ export default {
     
     onInstallationComplete() {
       this.showInstaller = false;
-      // Show a welcome message
       this.store.showToast('Welcome to ServerMint!', 'success');
     },
     
     updateSettings(settings) {
       console.log('Settings updated:', settings);
-      // In a real app, this would update the app's settings
     },
     
     handleUpdateError(message) {
@@ -331,7 +314,6 @@ export default {
     },
     
     restartGuide() {
-      // Restart the guide
       this.$refs.guideOverlay.startGuide();
     }
   }
@@ -348,7 +330,6 @@ html, body {
   font-family: 'Space Grotesk', sans-serif;
 }
 
-/* Override Vuetify component fonts */
 .v-btn,
 .v-text-field,
 .v-select,
@@ -410,7 +391,6 @@ html, body {
   overflow: hidden;
 }
 
-/* Green glow background effects in corners and around the interface */
 .app-bg::before,
 .app-bg::after,
 .app-bg .glow-effect,
@@ -425,7 +405,6 @@ html, body {
   pointer-events: none;
 }
 
-/* Top-left corner */
 .app-bg::before {
   background: radial-gradient(circle, rgba(74, 222, 128, 0.2) 0%, rgba(74, 222, 128, 0) 70%);
   width: 500px;
@@ -434,7 +413,6 @@ html, body {
   left: -200px;
 }
 
-/* Bottom-right corner */
 .app-bg::after {
   background: radial-gradient(circle, rgba(74, 222, 128, 0.2) 0%, rgba(74, 222, 128, 0) 70%);
   width: 500px;
@@ -443,7 +421,6 @@ html, body {
   right: -200px;
 }
 
-/* Top-right corner */
 .app-bg .glow-effect {
   background: radial-gradient(circle, rgba(74, 222, 128, 0.15) 0%, rgba(74, 222, 128, 0) 70%);
   width: 400px;
@@ -452,7 +429,6 @@ html, body {
   right: -150px;
 }
 
-/* Bottom-left corner */
 .app-bg .glow-effect-2 {
   background: radial-gradient(circle, rgba(74, 222, 128, 0.15) 0%, rgba(74, 222, 128, 0) 70%);
   width: 400px;
@@ -461,7 +437,6 @@ html, body {
   left: -150px;
 }
 
-/* Middle-right area */
 .app-bg .glow-effect-3 {
   background: radial-gradient(circle, rgba(74, 222, 128, 0.1) 0%, rgba(74, 222, 128, 0) 70%);
   width: 300px;
@@ -470,7 +445,6 @@ html, body {
   right: -50px;
 }
 
-/* Middle area */
 .app-bg .glow-effect-4 {
   background: radial-gradient(circle, rgba(74, 222, 128, 0.08) 0%, rgba(74, 222, 128, 0) 70%);
   width: 350px;
@@ -582,24 +556,20 @@ html, body {
   border: 1px solid rgba(74, 222, 128, 0.05);
 }
 
-/* Make non-sidebar icons white */
 .main-content .v-icon {
   color: white !important;
 }
 
-/* Hide scrollbar but keep functionality */
 ::-webkit-scrollbar {
   width: 0;
   height: 0;
   display: none;
 }
 
-/* For Firefox */
 * {
   scrollbar-width: none;
 }
-
-/* For IE and Edge */
+      
 * {
   -ms-overflow-style: none;
 }

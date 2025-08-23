@@ -1,6 +1,5 @@
 <template>
   <div class="premade-servers-view">
-    <!-- Header -->
     <div class="d-flex align-center mb-6">
       <h2 class="text-h5 font-weight-bold">Premade Servers</h2>
       <v-spacer></v-spacer>
@@ -15,7 +14,6 @@
       </v-btn>
     </div>
 
-    <!-- Filter tabs -->
     <div class="filter-section mb-4">
       <div class="d-flex align-center">
         <v-btn-toggle v-model="activeTab" color="primary" density="comfortable" mandatory rounded="lg" class="filter-tabs">
@@ -38,7 +36,6 @@
       </div>
     </div>
 
-    <!-- Search and filter bar -->
     <div class="d-flex align-center mb-6 search-filter-container">
       <v-text-field
         v-model="searchQuery"
@@ -88,7 +85,6 @@
       </v-btn>
     </div>
 
-    <!-- Advanced filters -->
     <v-expand-transition>
       <div v-if="showAdvancedFilters" class="advanced-filters mb-4">
         <v-card class="pa-4" bg-color="rgba(30, 30, 30, 0.8)">
@@ -142,7 +138,6 @@
       </div>
     </v-expand-transition>
 
-    <!-- Server grid -->
     <v-row>
       <v-col 
         v-for="server in filteredServers" 
@@ -168,7 +163,6 @@
               </template>
             </v-img>
             
-            <!-- Server type badge -->
             <v-chip
               size="small"
               :color="getServerTypeColor(server.type)"
@@ -178,7 +172,6 @@
               {{ server.type }}
             </v-chip>
             
-            <!-- Rating badge -->
             <div class="rating-badge">
               <v-icon size="small" color="amber">mdi-star</v-icon>
               <span class="rating-text">{{ server.rating }}</span>
@@ -202,7 +195,6 @@
           <v-card-text class="pt-0">
             <p class="text-caption text-truncate">{{ server.description }}</p>
             
-            <!-- Tags -->
             <div class="server-tags mt-2">
               <v-chip
                 v-for="tag in server.tags.slice(0, 3)"
@@ -251,7 +243,6 @@
       </v-col>
     </v-row>
 
-    <!-- Empty state -->
     <v-row v-if="filteredServers.length === 0">
       <v-col cols="12" class="text-center">
         <v-icon size="64" color="grey" class="mb-4">mdi-server-off</v-icon>
@@ -262,7 +253,6 @@
       </v-col>
     </v-row>
 
-    <!-- Server Details Dialog -->
     <v-dialog v-model="showServerDialog" max-width="600">
       <v-card v-if="selectedServer">
         <v-img
@@ -351,8 +341,7 @@ export default {
       minecraftVersions: ['1.21.2', '1.20.4', '1.20.1', '1.19.4', '1.19.2', '1.18.2', '1.16.5'],
       serverTypes: ['Vanilla', 'Paper', 'Spigot', 'Forge', 'Fabric', 'Neoforge'],
       ratingOptions: ['4.5+', '4.0+', '3.5+', '3.0+'],
-      downloadOptions: ['10K+', '50K+', '100K+', '500K+', '1M+'],
-      // Mock data for premade servers
+      downloadOptions: ['10K+', '50K+', '100K+', '500K+', '1M+'],   
       premadeServers: [
         {
           id: 1,
@@ -561,7 +550,6 @@ export default {
     filteredServers() {
       let filtered = [...this.premadeServers];
       
-      // Filter by tab
       if (this.activeTab === 'survival') {
         filtered = filtered.filter(server => 
           server.tags.some(tag => tag.toLowerCase().includes('survival'))
@@ -580,7 +568,6 @@ export default {
         );
       }
       
-      // Filter by search
       if (this.searchQuery) {
         const query = this.searchQuery.toLowerCase();
         filtered = filtered.filter(server => 
@@ -590,7 +577,6 @@ export default {
         );
       }
       
-      // Apply advanced filters
       if (this.filters.version) {
         filtered = filtered.filter(server => server.version === this.filters.version);
       }
@@ -615,7 +601,6 @@ export default {
   methods: {
     refreshServers() {
       this.isRefreshing = true;
-      // Simulate refresh
       setTimeout(() => {
         this.isRefreshing = false;
       }, 1000);
@@ -662,13 +647,10 @@ export default {
       server.downloading = true;
       
       try {
-        // Simulate download process
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // In a real app, this would trigger the actual download
         console.log(`Downloading server: ${server.name}`);
         
-        // Show success message
         this.$emit('server-downloaded', server);
         
       } catch (error) {

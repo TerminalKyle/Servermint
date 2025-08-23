@@ -1,6 +1,5 @@
 <template>
   <div v-if="show" class="splash-screen" :class="{ 'fade-out': isFadingOut }">
-    <!-- Animated background -->
     <div class="splash-background">
       <div class="particle particle-1"></div>
       <div class="particle particle-2"></div>
@@ -9,9 +8,7 @@
       <div class="particle particle-5"></div>
     </div>
     
-    <!-- Logo container -->
     <div class="logo-container">
-      <!-- Animated ServerMint logo -->
       <div class="logo-wrapper" :class="{ 'animate-in': animationStep >= 1 }">
         <img 
           v-if="!imageError"
@@ -32,13 +29,11 @@
         <div class="logo-glow" :class="{ 'glow-visible': animationStep >= 2 }"></div>
       </div>
       
-      <!-- App name -->
       <div class="app-name" :class="{ 'name-visible': animationStep >= 3 }">
         <span class="name-text">Server</span>
         <span class="name-text accent">Mint</span>
       </div>
       
-      <!-- Loading dots -->
       <div class="loading-dots" :class="{ 'dots-visible': animationStep >= 4 }">
         <div class="dot"></div>
         <div class="dot"></div>
@@ -46,7 +41,6 @@
       </div>
     </div>
     
-    <!-- Audio element for sound effect -->
     <audio ref="splashAudio" preload="auto">
       <source src="/splash-sound.mp3" type="audio/mpeg">
       <source src="/splash-sound.wav" type="audio/wav">
@@ -75,7 +69,6 @@ export default {
   mounted() {
     this.startAnimation();
     
-    // Force animation to continue even if image doesn't load
     setTimeout(() => {
       if (this.animationStep < 2) {
         console.log('Forcing animation to continue');
@@ -87,34 +80,28 @@ export default {
     async startAnimation() {
       console.log('Starting splash animation...');
       
-      // Play sound effect
       await this.playSound();
       
-      // Step 1: Logo wrapper appears
       setTimeout(() => {
         console.log('Animation step 1: Logo wrapper appears');
         this.animationStep = 1;
       }, 200);
       
-      // Step 2: Logo image becomes visible
       setTimeout(() => {
         console.log('Animation step 2: Logo image visible');
         this.animationStep = 2;
       }, 800);
       
-      // Step 3: App name appears
       setTimeout(() => {
         console.log('Animation step 3: App name appears');
         this.animationStep = 3;
       }, 1200);
       
-      // Step 4: Loading dots appear
       setTimeout(() => {
         console.log('Animation step 4: Loading dots appear');
         this.animationStep = 4;
       }, 1600);
       
-      // Complete animation and emit event
       setTimeout(() => {
         console.log('Animation complete, starting fade out');
         this.isFadingOut = true;
@@ -129,10 +116,9 @@ export default {
       if (this.audioPlayed) return;
       
       try {
-        // Try to play the audio file first
         const audio = this.$refs.splashAudio;
         if (audio) {
-          audio.volume = 0.3; // Set volume to 30%
+          audio.volume = 0.3;
           await audio.play();
           this.audioPlayed = true;
           return;
@@ -141,7 +127,6 @@ export default {
         console.log('Could not play splash sound file, trying Web Audio API...');
       }
       
-      // Fallback: Generate a simple sound using Web Audio API
       try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
@@ -172,8 +157,7 @@ export default {
     
     onImageError() {
       console.error('Failed to load ServerMint logo');
-      this.imageError = true;
-      // Continue with animation even if image fails
+      this.imageError = true; 
       this.animationStep = 2;
     }
   }

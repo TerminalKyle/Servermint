@@ -60,7 +60,6 @@ pub struct CurseForgeFile {
     pub fileName: Option<String>,
 }
 
-// CurseForge API response structures
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CurseForgeProject {
     pub id: u32,
@@ -76,7 +75,7 @@ pub struct CurseForgeFileInfo {
     pub fileName: String,
     pub downloadUrl: Option<String>,
     pub gameVersions: Vec<String>,
-    pub releaseType: u32, // 1 = Release, 2 = Beta, 3 = Alpha
+    pub releaseType: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -126,24 +125,19 @@ pub async fn install_modpack(
     println!("Server path: {}", server_path);
     println!("Server ID: {}", server_id);
 
-    // Determine modpack type and extract info
     let modpack_info = detect_and_parse_modpack(&modpack_path).await?;
     println!("Detected modpack: {} v{} ({})", modpack_info.name, modpack_info.version, modpack_info.source);
 
-    // Create server directories
     create_server_directories(&server_path)?;
 
-    // Extract modpack contents
     let temp_dir = extract_modpack(&modpack_path)?;
 
-    // Install based on source
     match modpack_info.source.as_str() {
         "curseforge" => install_curseforge_modpack(&modpack_info, &temp_dir, &server_path).await?,
         "modrinth" => install_modrinth_modpack(&modpack_info, &temp_dir, &server_path).await?,
         _ => return Err(format!("Unsupported modpack source: {}", modpack_info.source)),
     }
 
-    // Clean up temp directory
     if let Err(e) = fs::remove_dir_all(&temp_dir) {
         println!("Warning: Failed to clean up temp directory: {}", e);
     }
@@ -158,14 +152,12 @@ async fn detect_and_parse_modpack(modpack_path: &str) -> Result<ModpackInfo, Str
         return Err(format!("Modpack file not found: {}", modpack_path));
     }
 
-    // Try to open as ZIP file
     let file = File::open(path)
         .map_err(|e| format!("Failed to open modpack file: {}", e))?;
 
     let mut archive = ZipArchive::new(file)
         .map_err(|e| format!("Failed to read ZIP archive: {}", e))?;
 
-    // Check for CurseForge manifest
     if matches!(archive.by_name("manifest.json"), Ok(_)) {
         let manifest_content = {
             let mut manifest_file = archive.by_name("manifest.json")
@@ -178,7 +170,6 @@ async fn detect_and_parse_modpack(modpack_path: &str) -> Result<ModpackInfo, Str
         return parse_curseforge_manifest_from_content(&manifest_content).await;
     }
 
-    // Check for Modrinth index
     if matches!(archive.by_name("modrinth.index.json"), Ok(_)) {
         return parse_modrinth_index(&mut archive);
     }
@@ -190,7 +181,6 @@ async fn parse_curseforge_manifest_from_content(manifest_content: &str) -> Resul
     let manifest: CurseForgeManifest = serde_json::from_str(manifest_content)
         .map_err(|e| format!("Failed to parse manifest.json: {}", e))?;
 
-    // Extract mod information from files
     let mut mods = Vec::new();
     for file in &manifest.files {
         println!("Debug: Project ID: {}, File ID: {}, FileName: {:?}", 
@@ -223,7 +213,6 @@ async fn parse_curseforge_manifest_from_content(manifest_content: &str) -> Resul
         mods,
     };
 
-    // Enrich mods with API data after creating the ModpackInfo
     let mut enriched_mods = modpack_info.mods;
     enrich_curseforge_mods(&mut enriched_mods).await?;
 
@@ -255,7 +244,6 @@ fn parse_modrinth_index(archive: &mut ZipArchive<File>) -> Result<ModpackInfo, S
     let index: ModrinthIndex = serde_json::from_str(&index_content)
         .map_err(|e| format!("Failed to parse modrinth.index.json: {}", e))?;
 
-    // Extract mod information from files
     let mut mods = Vec::new();
     for file in &index.files {
         if file.path.ends_with(".jar") {
@@ -360,7 +348,6 @@ async fn install_curseforge_modpack(
 ) -> Result<(), String> {
     println!("Installing CurseForge modpack...");
 
-    // Copy overrides folder if it exists
     let overrides_path = temp_dir.join("overrides");
     if overrides_path.exists() {
         copy_directory_recursive(&overrides_path, Path::new(server_path))
@@ -368,12 +355,10 @@ async fn install_curseforge_modpack(
         println!("Copied overrides folder");
     }
 
-    // Create mods directory if it doesn't exist
     let mods_dir = format!("{}/mods", server_path);
     fs::create_dir_all(&mods_dir)
         .map_err(|e| format!("Failed to create mods directory: {}", e))?;
 
-    // Download and install mods using direct download URLs
     println!("Downloading {} mods from CurseForge...", modpack_info.mods.len());
     
     for (index, mod_info) in modpack_info.mods.iter().enumerate() {
@@ -383,7 +368,6 @@ async fn install_curseforge_modpack(
             if let Ok(file_id) = file_id_str.parse::<u32>() {
                 let mod_path = format!("{}/{}", mods_dir, mod_info.filename);
                 
-                // Try multiple URL patterns
                 let url_patterns = vec![
                     get_curseforge_url_pattern1(0, file_id, &mod_info.filename),
                     get_curseforge_url_pattern2(0, file_id, &mod_info.filename),
@@ -402,7 +386,6 @@ async fn install_curseforge_modpack(
                         }
                         Err(e) => {
                             println!("Pattern {} failed for {}: {}", pattern_num + 1, mod_info.filename, e);
-                            // Continue to next pattern
                         }
                     }
                 }
@@ -427,7 +410,6 @@ async fn install_modrinth_modpack(
 ) -> Result<(), String> {
     println!("Installing Modrinth modpack...");
 
-    // Copy overrides folder if it exists
     let overrides_path = temp_dir.join("overrides");
     if overrides_path.exists() {
         copy_directory_recursive(&overrides_path, Path::new(server_path))
@@ -435,14 +417,12 @@ async fn install_modrinth_modpack(
         println!("Copied overrides folder");
     }
 
-    // Download and install mods
     for mod_info in &modpack_info.mods {
         if let Some(url) = &mod_info.url {
             let mod_path = format!("{}/mods/{}", server_path, mod_info.filename);
             
             println!("Downloading mod: {} from {}", mod_info.name, url);
             
-            // Use the existing download function
             match download_file(url.clone(), mod_path.clone()).await {
                 Ok(_) => println!("Successfully downloaded: {}", mod_info.filename),
                 Err(e) => println!("Warning: Failed to download {}: {}", mod_info.filename, e),
@@ -480,42 +460,31 @@ fn copy_directory_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
-// Re-export the download_file function from server.rs
 async fn download_file(url: String, destination: String) -> Result<String, String> {
     use crate::server::download_file;
     download_file(url, destination).await
 }
 
-// CurseForge direct download functions (no API needed!)
 fn get_curseforge_download_url_with_filename(project_id: u32, file_id: u32, filename: &str) -> String {
-    // CurseForge direct download URL pattern
-    // The pattern is: https://edge.forgecdn.net/files/{file_id/1000}/{file_id%1000}/{actual_filename}
     format!("https://edge.forgecdn.net/files/{}/{}/{}", file_id / 1000, file_id % 1000, filename)
 }
 
-// Alternative pattern that might work better
 fn get_curseforge_alternative_url(project_id: u32, file_id: u32, filename: &str) -> String {
-    // Try the alternative pattern: https://files.forgecdn.net/files/{file_id/1000}/{file_id%1000}/{filename}
     format!("https://files.forgecdn.net/files/{}/{}/{}", file_id / 1000, file_id % 1000, filename)
 }
 
-// Try different URL patterns
 fn get_curseforge_url_pattern1(project_id: u32, file_id: u32, filename: &str) -> String {
-    // Pattern 1: https://edge.forgecdn.net/files/{file_id/1000}/{file_id%1000}/{filename}
     format!("https://edge.forgecdn.net/files/{}/{}/{}", file_id / 1000, file_id % 1000, filename)
 }
 
 fn get_curseforge_url_pattern2(project_id: u32, file_id: u32, filename: &str) -> String {
-    // Pattern 2: https://files.forgecdn.net/files/{file_id/1000}/{file_id%1000}/{filename}
     format!("https://files.forgecdn.net/files/{}/{}/{}", file_id / 1000, file_id % 1000, filename)
 }
 
 fn get_curseforge_url_pattern3(project_id: u32, file_id: u32, filename: &str) -> String {
-    // Pattern 3: https://mediafilez.forgecdn.net/files/{file_id/1000}/{file_id%1000}/{filename}
     format!("https://mediafilez.forgecdn.net/files/{}/{}/{}", file_id / 1000, file_id % 1000, filename)
 }
 
-// Try to get the actual filename using CurseForge API (with proper headers)
 async fn get_curseforge_file_info_with_api(file_id: u32) -> Option<String> {
     let client = reqwest::Client::new();
     let url = format!("https://api.curseforge.com/v1/mods/files/{}", file_id);
@@ -545,15 +514,12 @@ async fn enrich_curseforge_mods(mods: &mut Vec<ModInfo>) -> Result<(), String> {
     for mod_info in mods.iter_mut() {
         if let Some(project_id_str) = &mod_info.project_id {
             if let Ok(project_id) = project_id_str.parse::<u32>() {
-                // Improve the fallback name
                 if mod_info.name.starts_with("mod-") {
                     mod_info.name = format!("CurseForge Mod {}", project_id);
                 }
                 
-                // Get actual filename if we have file ID
                 if let Some(file_id_str) = &mod_info.file_id {
                     if let Ok(file_id) = file_id_str.parse::<u32>() {
-                        // Try to get the actual filename from API
                         if let Some(actual_filename) = get_curseforge_file_info_with_api(file_id).await {
                             let filename_clone = actual_filename.clone();
                             mod_info.filename = actual_filename;
@@ -587,8 +553,7 @@ pub async fn analyze_modpack_file(
 ) -> Result<ModpackInfo, String> {
     println!("=== Analyzing modpack file ===");
     println!("Modpack path: {}", modpack_path);
-    
-    // Determine modpack type and extract info
+
     let modpack_info = detect_and_parse_modpack(&modpack_path).await?;
     println!("Detected modpack: {} v{} ({})", modpack_info.name, modpack_info.version, modpack_info.source);
     

@@ -1,70 +1,44 @@
 # ServerMint
 
-A modern Minecraft server management application built with Tauri and Vue.js.
+A modern, open-source Minecraft server management application built with love, passion, and care using Tauri and Vue.js. ServerMint transforms your game development workflow by providing powerful tools that are easy to use, helping you create and manage game servers for development and multiplayer testing without the technical overwhelm.
 
-## Features
+![ServerMint Screenshot](public/servermint.png)
 
-- **Server Management**: Create, start, stop, and manage Minecraft servers
-- **Multiple Server Types**: Support for Vanilla, Paper, Spigot, and more
-- **File Management**: Edit server files directly in the app
-- **Automatic Updates**: Built-in updater for seamless app updates
-- **Cross-Platform**: Works on Windows, macOS, and Linux
-- **Modern UI**: Beautiful, responsive interface with dark mode
+## What is ServerMint?
+
+ServerMint is your comprehensive toolkit for game server management. Whether you're testing mods locally or scaling to production, ServerMint handles the complexity so you can focus on what matters most. Built with modern technologies and designed for developers who demand both power and simplicity.
+
+### Key Features
+
+- **One-Click Server Setup**: Create local game servers with just a few clicks for any Minecraft version
+- **Multiple Server Types**: Full support for Vanilla, Paper, Spigot, Fabric, Forge, Bukkit, and Mohist
+- **Built-in SFTP/SSH Access**: Securely access and modify your servers with advanced management tools
+- **Integrated Mod & Plugin Installer**: Browse and install mods and plugins with our integrated marketplace
+- **Export & Deploy**: Export your server configurations and upload them to production environments seamlessly
+- **Node/VPS Integration**: Connect your nodes/VPS to spin up servers with ease
+- **Developer Tools**: Advanced tools for debugging, performance monitoring, and server optimization
+- **Cross-Platform**: Works seamlessly on Windows 10/11, macOS, and Linux
+- **Modern UI**: Beautiful, responsive interface with dark mode and intuitive design
 
 ## Automatic Updates
 
-ServerMint includes a comprehensive automatic update system that:
+ServerMint includes a comprehensive automatic update system that keeps your application current:
 
-- **Checks for updates** automatically on app startup and every 30 minutes
-- **Downloads updates** in the background when available
-- **Installs updates** automatically with user confirmation
-- **Notifies users** with update details and progress
-- **Restarts the app** seamlessly after installation
+- **Smart Update Checking**: Automatically checks for updates on startup and every 30 minutes
+- **Background Downloads**: Downloads updates seamlessly in the background
+- **User-Friendly Installation**: Installs updates with user confirmation and progress tracking
+- **Seamless Restarts**: Handles app restarts automatically after installation
+- **Detailed Notifications**: Keeps you informed with update details and progress
 
 ### Update Settings
 
-Users can control update behavior through the Settings panel:
+Control your update experience through the intuitive Settings panel:
 
-- **Check for updates automatically**: Enable/disable automatic update checking
-- **Automatically download updates**: Auto-download when updates are available
-- **Automatically install updates**: Auto-install downloaded updates
+- **Automatic Update Checking**: Enable/disable automatic update detection
+- **Auto-Download**: Automatically download updates when available
+- **Auto-Install**: Automatically install downloaded updates
 
-### For Developers
 
-To set up automatic updates for your own releases:
-
-1. **Generate code signing keys**:
-   ```bash
-   tauri signer generate -w ~/.tauri/servermint.key
-   tauri signer generate -w ~/.tauri/servermint.key -p
-   ```
-
-2. **Update configuration** in `src-tauri/tauri.conf.json`:
-   ```json
-   {
-     "updater": {
-       "active": true,
-       "endpoints": ["https://your-domain.com/updates.json"],
-       "dialog": true,
-       "pubkey": "YOUR_PUBLIC_KEY_HERE"
-     }
-   }
-   ```
-
-3. **Use the release script**:
-   ```bash
-   node scripts/update-release.js 0.1.1 "Bug fixes and improvements"
-   ```
-
-4. **Build and sign** your release:
-   ```bash
-   npm run tauri:build
-   tauri signer sign ~/.tauri/servermint.key path/to/release/file
-   ```
-
-5. **Upload** to your server and update `updates.json`
-
-See `UPDATER_SETUP.md` for detailed setup instructions.
 
 ## Development
 
@@ -74,29 +48,29 @@ See `UPDATER_SETUP.md` for detailed setup instructions.
 - Rust 1.70+
 - Tauri CLI v2
 
-### Setup
+### Quick Start
 
 1. **Clone the repository**:
    ```bash
    git clone <repository-url>
-   cd manticore
+   cd servermint
    ```
 
 2. **Install dependencies**:
    ```bash
-npm install
-```
+   npm install
+   ```
 
 3. **Start development server**:
    ```bash
-   npm run tauri:dev
-```
+   npx tauri dev
+   ```
 
 ### Building
 
 **Development build**:
 ```bash
-npm run tauri:dev
+npx tauri dev
 ```
 
 **Production build**:
@@ -107,7 +81,7 @@ npm run tauri:build
 ### Project Structure
 
 ```
-manticore/
+servermint/
 ├── src/                    # Vue.js frontend
 │   ├── components/         # Vue components
 │   ├── App.vue            # Main app component
@@ -123,18 +97,43 @@ manticore/
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+We believe in the power of open source and community collaboration. ServerMint is built with love and maintained with care, and we welcome contributions from developers who share our passion for creating amazing tools.
+
+### How to Contribute
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make your changes** with care and attention to detail
+4. **Test thoroughly** to ensure everything works as expected
+5. **Submit a pull request** with a clear description of your changes
+
+### Code of Conduct
+
+We maintain a welcoming and inclusive environment. Please be respectful and constructive in all interactions.
 
 ## License
 
 [Add your license here]
 
-## Support
+## Support & Community
 
-For issues and questions:
-- [GitHub Issues](https://github.com/your-repo/issues)
-- [Documentation](https://your-docs-url.com)
+ServerMint is more than just software - it's a community of passionate developers and gamers. We're here to help you succeed.
+
+### Get Help
+
+- **Documentation**: [https://servermint.app/](https://servermint.app/)
+- **Discord Community**: [discord.gg/servermint](https://discord.gg/servermint)
+- **GitHub Issues**: [https://github.com/your-repo/issues](https://github.com/your-repo/issues)
+- **Website**: [https://servermint.app/](https://servermint.app/)
+
+### Stay Connected
+
+- Join our Discord for real-time updates and support
+- Follow us on GitHub for the latest releases
+- Check out our website for tutorials and guides
+
+---
+
+**Made with love by the ServerMint Team**
+
+ServerMint is actively maintained and regularly updated to ensure compatibility with the latest Windows 10/11 systems and Minecraft versions. We're committed to providing the best possible experience for game server management.

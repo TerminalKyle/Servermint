@@ -1,7 +1,6 @@
 <template>
   <div class="modpack-installer">
     <v-card color="#1E1E1E" class="pa-6 modpack-card">
-      <!-- Green Blob Decorations -->
       <div class="green-blob blob-1"></div>
       <div class="green-blob blob-2"></div>
       <div class="green-blob blob-3"></div>
@@ -17,9 +16,7 @@
         </div>
 
         <v-row>
-          <!-- Left Column - Input & Info -->
           <v-col cols="12" md="6">
-            <!-- File Selection -->
             <v-file-input
               v-model="selectedFile"
               accept=".zip,application/zip"
@@ -39,7 +36,6 @@
 
 
 
-            <!-- Server Selection -->
             <v-select
               v-model="selectedServerId"
               :items="servers"
@@ -58,7 +54,6 @@
               </template>
             </v-select>
 
-            <!-- Modpack Preview -->
             <v-expand-transition>
               <div v-if="modpackInfo" class="modpack-preview pa-4 rounded bg-surface mb-4">
                 <div class="text-h6 mb-3">Modpack Information</div>
@@ -101,9 +96,7 @@
 
           </v-col>
 
-          <!-- Right Column - Mod List or Installation Progress -->
           <v-col cols="12" md="6">
-            <!-- Installation Progress -->
             <v-expand-transition>
               <div v-if="installing" class="installation-progress pa-4 rounded bg-surface">
                 <div class="text-h6 mb-3">Installation Progress</div>
@@ -133,7 +126,6 @@
               </div>
             </v-expand-transition>
 
-            <!-- Mod List Preview -->
             <v-expand-transition>
               <div v-if="modpackInfo && !installing" class="mod-list-preview pa-4 rounded bg-surface">
                 <div class="d-flex justify-space-between align-center mb-3">
@@ -163,7 +155,6 @@
                   </v-list-item>
                 </v-list>
                 
-                <!-- Pagination Controls -->
                 <div v-if="totalModsPages > 1" class="pagination-controls d-flex justify-center align-center mt-2 gap-2">
                   <v-btn
                     size="x-small"
@@ -222,7 +213,6 @@
       </v-card-actions>
     </v-card>
 
-    <!-- Success Dialog -->
     <v-dialog v-model="showSuccessDialog" max-width="500px">
       <v-card color="#1E1E1E">
         <v-card-title class="text-h6 pa-4">
@@ -272,7 +262,6 @@ export default {
       showSuccessDialog: false,
       servers: [],
       
-      // Pagination for mod list
       modsPerPage: 8,
       currentModsPage: 1
     }
@@ -325,7 +314,6 @@ export default {
       
       if (!file) return
       
-      // Only process actual File objects, not DOM events
       if (!(file instanceof File)) {
         console.log('Ignoring non-File object:', file)
         return
@@ -333,7 +321,6 @@ export default {
       
       console.log('File selected:', file)
       
-      // Validate file type - check for .zip extension
       console.log('File object properties:', {
         name: file.name,
         type: file.type,
@@ -358,28 +345,21 @@ export default {
       
       console.log('File validation passed, proceeding to preview')
       
-      // Preview modpack info
       this.previewModpack(file)
     },
     
     async previewModpack(file) {
       try {
         this.currentStep = 'Analyzing modpack...'
-        this.currentModsPage = 1 // Reset pagination
-        
-        // For now, we'll use a temporary approach since getting the full file path
-        // from a file input can be tricky due to browser security restrictions
-        // We'll need to copy the file to a temporary location first
+        this.currentModsPage = 1
         
         console.log('File object:', file)
         console.log('File path:', file.path)
         console.log('File name:', file.name)
         
-        // Create a temporary file for the backend to analyze
         const tempPath = await this.createTempFile(file)
         console.log('Created temp file at:', tempPath)
         
-        // Call the backend to analyze the modpack
         const result = await invoke('analyze_modpack_file', {
           modpackPath: tempPath
         })
@@ -441,17 +421,14 @@ export default {
         this.addLog('Starting modpack installation...')
         this.installProgress = 10
         
-        // Create a temporary file for installation
         const tempPath = await this.createTempFile(this.selectedFile)
         this.addLog(`Modpack file: ${this.selectedFile.name}`)
         this.addLog(`Target server: ${server.name}`)
         this.installProgress = 20
         
-        // Call the backend installation function
         this.currentStep = 'Installing modpack...'
         this.installProgress = 30
         
-        // Call the real backend installation
         await invoke('install_modpack_from_file', {
           modpackPath: tempPath,
           serverId: this.selectedServerId,
@@ -464,7 +441,6 @@ export default {
         this.installProgress = 100
         this.currentStep = 'Installation complete'
         
-        // Show success dialog
         this.showSuccessDialog = true
         
       } catch (error) {
@@ -496,16 +472,11 @@ export default {
     },
     
     getModDisplayName(mod) {
-      // If the mod name looks like "mod-123456", it's likely a CurseForge project ID
-      // (fallback in case API call fails)
       if (mod.name.startsWith('mod-')) {
-        // Try to extract a better name from the filename
         const filename = mod.filename.replace('.jar', '')
-        // If filename is just numbers, use a generic name
         if (/^\d+$/.test(filename)) {
           return `Mod ${mod.project_id || filename}`
         }
-        // Otherwise use the filename as the name
         return filename
       }
       return mod.name

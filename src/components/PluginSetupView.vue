@@ -1,14 +1,11 @@
 <template>
   <div class="plugin-setup-view">
-    <!-- Loading state -->
     <div v-if="isLoading" class="loading-state">
       <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
       <p class="text-body-1 text-medium-emphasis mt-4">Loading projects...</p>
     </div>
     
-    <!-- Main content -->
     <div v-else>
-      <!-- Header -->
       <div class="setup-header mb-6">
         <div class="d-flex align-center justify-space-between">
           <div>
@@ -27,7 +24,6 @@
         </div>
       </div>
 
-    <!-- Show existing projects if any exist -->
     <div v-if="hasProjects" class="projects-view">
       <div class="d-flex align-center justify-space-between mb-6">
         <h2 class="text-h5 font-weight-medium">Your Projects</h2>
@@ -115,7 +111,6 @@
       </div>
     </div>
 
-    <!-- Setup Wizard (shown when no projects exist or when creating new) -->
     <div v-if="!hasProjects || showWizard" class="wizard-view">
       <div v-if="showWizard" class="d-flex align-center justify-space-between mb-6">
         <h2 class="text-h5 font-weight-medium">Create New Project</h2>
@@ -130,7 +125,6 @@
       </div>
       
       <v-card class="setup-wizard" elevation="4">
-        <!-- Progress Bar -->
         <div class="progress-section pa-6 pb-4">
           <div class="d-flex align-center justify-space-between mb-4">
             <h2 class="text-h6 font-weight-medium">Setup Progress</h2>
@@ -144,9 +138,7 @@
           ></v-progress-linear>
         </div>
 
-        <!-- Step Content -->
         <div class="step-content pa-6">
-          <!-- Step 1: Project Type Selection -->
           <div v-if="currentStep === 1" class="step-1">
             <h3 class="text-h5 font-weight-medium mb-4">Choose Your Project Type</h3>
             <p class="text-body-1 text-medium-emphasis mb-6">
@@ -274,7 +266,6 @@
             </div>
           </div>
 
-          <!-- Step 2: Project Configuration -->
           <div v-if="currentStep === 2" class="step-2">
             <h3 class="text-h5 font-weight-medium mb-4">Project Configuration</h3>
             <p class="text-body-1 text-medium-emphasis mb-6">
@@ -380,7 +371,6 @@
             </v-form>
           </div>
 
-          <!-- Step 3: Project Location -->
           <div v-if="currentStep === 3" class="step-3">
             <h3 class="text-h5 font-weight-medium mb-4">Project Location</h3>
             <p class="text-body-1 text-medium-emphasis mb-6">
@@ -430,7 +420,6 @@
             </v-row>
           </div>
 
-          <!-- Step 4: Dependencies & Features -->
           <div v-if="currentStep === 4" class="step-4">
             <h3 class="text-h5 font-weight-medium mb-4">Dependencies & Features</h3>
             <p class="text-body-1 text-medium-emphasis mb-6">
@@ -501,7 +490,6 @@
             </v-row>
           </div>
 
-          <!-- Step 5: Review & Create -->
           <div v-if="currentStep === 5" class="step-5">
             <h3 class="text-h5 font-weight-medium mb-4">Review & Create</h3>
             <p class="text-body-1 text-medium-emphasis mb-6">
@@ -557,7 +545,6 @@
           </div>
         </div>
 
-        <!-- Navigation Buttons -->
         <div class="step-navigation pa-6 pt-0">
           <div class="d-flex justify-space-between">
             <v-btn
@@ -617,7 +604,7 @@ export default {
       selectedType: '',
       configValid: false,
       creating: false,
-      showWizard: false, // Show wizard only when creating new project
+      showWizard: false, 
       
       projectConfig: {
         name: '',
@@ -670,7 +657,7 @@ export default {
         case 3:
           return !!this.projectConfig.location;
         case 4:
-          return true; // Dependencies are optional
+          return true; 
         default:
           return true;
       }
@@ -686,10 +673,8 @@ export default {
   },
   
   mounted() {
-    // Wait for store to be initialized
     this.$nextTick(() => {
       if (this.store && this.store.projects) {
-        // If no projects exist, show the wizard
         if (this.store.projects.length === 0) {
           this.showWizard = true;
         }
@@ -746,16 +731,12 @@ export default {
     async deleteProject(project) {
       if (confirm(`Are you sure you want to delete project "${project.name}"? This will permanently delete the project folder and all its files. This action cannot be undone.`)) {
         try {
-          // Show loading state
           this.store.showToast('Deleting project...', 'info');
           
-          // Remove project (this will also delete the folder)
           this.store.removeProject(project.id);
           
-          // Show success message
           this.store.showToast(`Project "${project.name}" deleted successfully`, 'success');
           
-          // Show wizard if no projects left
           if (this.store.projects.length === 0) {
             this.showWizard = true;
           }
@@ -797,7 +778,6 @@ export default {
     },
     
     selectProjectLocation() {
-      // Set default location to C:\servermint\projects
       this.projectConfig.location = `C:\\servermint\\projects\\${this.projectConfig.name || 'MyProject'}`;
     },
     
@@ -805,13 +785,10 @@ export default {
       this.creating = true;
       
       try {
-        // Create the project directory
         await this.store.tauriAPI.createDir(this.projectConfig.location);
         
-        // Generate project files based on type
         await this.generateProjectFiles();
         
-        // Save project to store
         const projectData = {
           id: Date.now().toString(),
           name: this.projectConfig.name,
@@ -831,10 +808,8 @@ export default {
         
         this.store.addProject(projectData);
         
-        // Show success message
-        this.store.showToast('Project created successfully!', 'success');
+            this.store.showToast('Project created successfully!', 'success');
         
-        // Reset wizard state and hide it
         this.showWizard = false;
         this.currentStep = 1;
         this.selectedType = '';
@@ -895,26 +870,21 @@ export default {
     },
     
     async generateJavaPluginFiles(projectPath, projectName) {
-      // Create Maven structure
       await this.store.tauriAPI.createDir(`${projectPath}/src/main/java`);
       await this.store.tauriAPI.createDir(`${projectPath}/src/main/resources`);
       await this.store.tauriAPI.createDir(`${projectPath}/src/test/java`);
       
-      // Generate pom.xml
       const pomXml = this.generatePomXml(projectName);
       await this.store.tauriAPI.writeFile(`${projectPath}/pom.xml`, pomXml);
       
-      // Generate plugin.yml
       const pluginYml = this.generatePluginYml(projectName);
       await this.store.tauriAPI.writeFile(`${projectPath}/src/main/resources/plugin.yml`, pluginYml);
       
-      // Generate main plugin class
       const mainClass = this.generateMainPluginClass(projectName);
       const packagePath = projectName.toLowerCase();
       await this.store.tauriAPI.createDir(`${projectPath}/src/main/java/${packagePath}`);
       await this.store.tauriAPI.writeFile(`${projectPath}/src/main/java/${packagePath}/${projectName}.java`, mainClass);
       
-      // Generate config.yml if enabled
       if (this.projectConfig.features.config) {
         const configYml = this.generateConfigYml();
         await this.store.tauriAPI.writeFile(`${projectPath}/src/main/resources/config.yml`, configYml);
@@ -928,11 +898,9 @@ export default {
         await this.store.tauriAPI.createDir(`${projectPath}/behavior_pack`);
         await this.store.tauriAPI.createDir(`${projectPath}/behavior_pack/scripts`);
         
-        // Generate behavior pack manifest
         const behaviorManifest = this.generateBehaviorManifest(addonName);
         await this.store.tauriAPI.writeFile(`${projectPath}/behavior_pack/manifest.json`, behaviorManifest);
         
-        // Generate main script
         const mainScript = this.generateMainScript(addonName);
         await this.store.tauriAPI.writeFile(`${projectPath}/behavior_pack/scripts/main.js`, mainScript);
       }
@@ -941,27 +909,22 @@ export default {
         await this.store.tauriAPI.createDir(`${projectPath}/resource_pack`);
         await this.store.tauriAPI.createDir(`${projectPath}/resource_pack/textures`);
         
-        // Generate resource pack manifest
         const resourceManifest = this.generateResourceManifest(addonName);
         await this.store.tauriAPI.writeFile(`${projectPath}/resource_pack/manifest.json`, resourceManifest);
       }
     },
     
     async generateForgeModFiles(projectPath, projectName) {
-      // Create Gradle structure
       await this.store.tauriAPI.createDir(`${projectPath}/src/main/java`);
       await this.store.tauriAPI.createDir(`${projectPath}/src/main/resources`);
       await this.store.tauriAPI.createDir(`${projectPath}/src/main/resources/META-INF`);
       
-      // Generate build.gradle
       const buildGradle = this.generateForgeBuildGradle(projectName);
       await this.store.tauriAPI.writeFile(`${projectPath}/build.gradle`, buildGradle);
       
-      // Generate mods.toml
       const modsToml = this.generateModsToml(projectName);
       await this.store.tauriAPI.writeFile(`${projectPath}/src/main/resources/META-INF/mods.toml`, modsToml);
       
-      // Generate main mod class
       const mainClass = this.generateForgeMainClass(projectName);
       const packagePath = projectName.toLowerCase();
       await this.store.tauriAPI.createDir(`${projectPath}/src/main/java/${packagePath}`);
@@ -969,19 +932,15 @@ export default {
     },
     
     async generateFabricModFiles(projectPath, projectName) {
-      // Create Gradle structure
       await this.store.tauriAPI.createDir(`${projectPath}/src/main/java`);
       await this.store.tauriAPI.createDir(`${projectPath}/src/main/resources`);
       
-      // Generate build.gradle
       const buildGradle = this.generateFabricBuildGradle(projectName);
       await this.store.tauriAPI.writeFile(`${projectPath}/build.gradle`, buildGradle);
       
-      // Generate fabric.mod.json
       const fabricModJson = this.generateFabricModJson(projectName);
       await this.store.tauriAPI.writeFile(`${projectPath}/src/main/resources/fabric.mod.json`, fabricModJson);
       
-      // Generate main mod class
       const mainClass = this.generateFabricMainClass(projectName);
       const packagePath = projectName.toLowerCase();
       await this.store.tauriAPI.createDir(`${projectPath}/src/main/java/${packagePath}`);
@@ -1118,7 +1077,7 @@ world.beforeEvents.chatSend.subscribe((eventData) => {
   const player = eventData.sender;
   const message = eventData.message;
   
-  // Your addon logic here
+
   console.warn(\`[\${addonName}] \${player.name} said: \${message}\`);
 });`;
     },
@@ -1360,12 +1319,11 @@ public class ${projectName} implements ModInitializer {
 .step-content {
   min-height: 400px;
 }
-
+  
 .step-navigation {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Custom scrollbar for the view */
 .plugin-setup-view ::-webkit-scrollbar {
   width: 8px;
 }

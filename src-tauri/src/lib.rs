@@ -19,18 +19,15 @@ use reqwest;
 async fn create_temp_file(file_name: String, file_data: Vec<u8>) -> Result<String, String> {
     use std::env;
     
-    // Get the temp directory
     let temp_dir = env::temp_dir();
     let temp_file_path = temp_dir.join(&file_name);
     
-    // Write the file data to the temp file
     let mut file = fs::File::create(&temp_file_path)
         .map_err(|e| format!("Failed to create temp file: {}", e))?;
     
     file.write_all(&file_data)
         .map_err(|e| format!("Failed to write file data: {}", e))?;
     
-    // Return the path as a string
     Ok(temp_file_path.to_string_lossy().to_string())
 }
 
@@ -38,21 +35,17 @@ async fn create_temp_file(file_name: String, file_data: Vec<u8>) -> Result<Strin
 async fn create_temp_file_from_blob(fileName: String, fileSize: u64) -> Result<String, String> {
     use std::env;
     
-    // Get the temp directory
     let temp_dir = env::temp_dir();
     let temp_file_path = temp_dir.join(&fileName);
     
-    // Create an empty file with the specified size
     let file = fs::File::create(&temp_file_path)
         .map_err(|e| format!("Failed to create temp file: {}", e))?;
     
-    // Pre-allocate the file size (optional, for performance)
     if fileSize > 0 {
         file.set_len(fileSize)
             .map_err(|e| format!("Failed to set file size: {}", e))?;
     }
     
-    // Return the path as a string
     Ok(temp_file_path.to_string_lossy().to_string())
 }
 
@@ -60,21 +53,17 @@ async fn create_temp_file_from_blob(fileName: String, fileSize: u64) -> Result<S
 async fn write_temp_file_chunk(temp_path: String, chunk_index: usize, chunk_data: Vec<u8>) -> Result<(), String> {
     use std::fs::OpenOptions;
     
-    // Open the file for writing at the specific offset
     let mut file = OpenOptions::new()
         .write(true)
         .open(&temp_path)
         .map_err(|e| format!("Failed to open temp file for writing: {}", e))?;
     
-    // Calculate the offset for this chunk (assuming 1MB chunks)
-    let chunk_size = 1024 * 1024; // 1MB
+    let chunk_size = 1024 * 1024;
     let offset = chunk_index * chunk_size;
     
-    // Seek to the correct position
     file.seek(std::io::SeekFrom::Start(offset as u64))
         .map_err(|e| format!("Failed to seek to position: {}", e))?;
     
-    // Write the chunk data
     file.write_all(&chunk_data)
         .map_err(|e| format!("Failed to write chunk data: {}", e))?;
     
@@ -83,13 +72,11 @@ async fn write_temp_file_chunk(temp_path: String, chunk_index: usize, chunk_data
 
 #[tauri::command]
 async fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
-    // Create the directory if it doesn't exist
     if let Some(parent) = std::path::Path::new(&path).parent() {
         fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create directory: {}", e))?;
     }
     
-    // Write the binary data to the file
     fs::write(&path, &data)
         .map_err(|e| format!("Failed to write binary file: {}", e))?;
     
@@ -98,7 +85,6 @@ async fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
 
 #[tauri::command]
 async fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
-    // Read the binary data from the file
     fs::read(&path)
         .map_err(|e| format!("Failed to read binary file: {}", e))
 }
@@ -108,8 +94,7 @@ async fn open_folder(path: String) -> Result<(), String> {
   #[cfg(target_os = "windows")]
   {
     use std::process::Command;
-    
-    // Normalize path to use Windows backslashes
+            
     let normalized_path = path.replace('/', "\\");
     
     let output = Command::new("explorer.exe")
@@ -264,7 +249,6 @@ async fn move_file(source_path: String, destination_path: String) -> Result<(), 
         return Err(format!("Source file does not exist: {}", source.display()));
     }
     
-    // Create destination directory if it doesn't exist
     if let Some(parent) = destination.parent() {
         if !parent.exists() {
             if let Err(e) = fs::create_dir_all(parent) {
@@ -398,8 +382,6 @@ async fn backup_all_servers(state: tauri::State<'_, Arc<Mutex<ServerManager>>>) 
     let server_list = server_manager_guard.list_servers();
     for server in server_list {
         if server.status != "installing" {
-            // For now, just count servers that can be backed up
-            // TODO: Implement actual backup functionality
             println!("Would create backup for server: {}", server.config.name);
             backup_count += 1;
         }
@@ -416,8 +398,6 @@ async fn backup_all_servers(state: tauri::State<'_, Arc<Mutex<ServerManager>>>) 
 async fn check_for_updates() -> Result<serde_json::Value, String> {
     println!("Checking for application updates...");
     
-    // This would check for updates using Tauri's updater
-    // For now, return no updates available
     Ok(serde_json::json!({
         "success": true,
         "hasUpdate": false,
@@ -437,7 +417,6 @@ async fn restart_application(app_handle: tauri::AppHandle) -> Result<(), String>
 async fn quit_application(app_handle: tauri::AppHandle) -> Result<(), String> {
     println!("Quitting application...");
     
-    // Use Tauri's exit functionality
     app_handle.exit(0);
     
     Ok(())
@@ -447,7 +426,6 @@ async fn quit_application(app_handle: tauri::AppHandle) -> Result<(), String> {
 async fn get_mint_menu_commands() -> Result<serde_json::Value, String> {
     println!("Getting MintMenu commands...");
     
-    // Return available commands for the MintMenu
     let commands = vec![
         serde_json::json!({
             "id": "create-server",
@@ -519,7 +497,6 @@ async fn get_mint_menu_commands() -> Result<serde_json::Value, String> {
     }))
 }
 
-// Mojang API data structures
 #[derive(Debug, Serialize, Deserialize)]
 struct MojangProfile {
     id: String,
@@ -567,7 +544,6 @@ struct PlayerProfile {
     demo: bool,
 }
 
-// Mojang API functions
 #[tauri::command]
 async fn get_player_uuid(player_name: String) -> Result<Option<String>, String> {
     let client = reqwest::Client::new();
@@ -581,7 +557,7 @@ async fn get_player_uuid(player_name: String) -> Result<Option<String>, String> 
                     Err(e) => Err(format!("Failed to parse profile: {}", e)),
                 }
             } else if response.status() == 404 {
-                Ok(None) // Player not found
+                Ok(None)
             } else {
                 Err(format!("API request failed with status: {}", response.status()))
             }
@@ -600,7 +576,6 @@ async fn get_player_profile(player_name: String, uuid: String) -> Result<PlayerP
             if response.status().is_success() {
                 match response.json::<MojangSessionProfile>().await {
                     Ok(session_profile) => {
-                        // Parse textures from properties
                         let mut skin = None;
                         let mut cape = None;
                         
@@ -621,8 +596,8 @@ async fn get_player_profile(player_name: String, uuid: String) -> Result<PlayerP
                             uuid: session_profile.id,
                             skin,
                             cape,
-                            legacy: false, // This would need to be determined from the original profile
-                            demo: false,   // This would need to be determined from the original profile
+                            legacy: false,
+                            demo: false,
                         })
                     },
                     Err(e) => Err(format!("Failed to parse session profile: {}", e)),
@@ -637,10 +612,8 @@ async fn get_player_profile(player_name: String, uuid: String) -> Result<PlayerP
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  // Ensure application directories exist
   if let Err(e) = setup::ensure_app_directories() {
     eprintln!("Warning: Failed to create application directories: {}", e);
-    // Continue anyway, as the app might still work with fallbacks
   }
 
   let server_manager = Arc::new(Mutex::new(ServerManager::new()));
@@ -655,7 +628,6 @@ pub fn run() {
     .plugin(tauri_plugin_updater::Builder::new().build())
     .plugin(tauri_plugin_process::init())
     .invoke_handler(tauri::generate_handler![
-      // Server commands
       server::list_servers,
       server::add_server,
       server::remove_server,
@@ -672,7 +644,6 @@ pub fn run() {
       server::setup_java,
       server::get_java_path,
       
-      // Node commands
       node::list_nodes,
       node::get_node,
       node::add_node,
@@ -684,25 +655,20 @@ pub fn run() {
       node::update_node_metrics,
       node::update_node_status,
       
-      // Utility commands
       open_folder,
       
-      // SFTP commands
       sftp::test_sftp_connection,
       sftp::upload_file_sftp,
       sftp::download_file_sftp,
       sftp::list_remote_files,
       sftp::run_sftp_command,
       
-      // Export commands
       export::export_server_zip,
       export::import_server_from_zip,
       
-      // Modpack commands
       install_modpack_from_file,
       analyze_modpack_file,
       
-      // File operations
       get_file_size,
       get_folder_size,
       rename_file,
@@ -714,7 +680,6 @@ pub fn run() {
       write_binary_file,
       read_binary_file,
       
-      // MintMenu commands
       start_all_servers,
       stop_all_servers,
       backup_all_servers,
@@ -723,11 +688,9 @@ pub fn run() {
       quit_application,
       get_mint_menu_commands,
       
-      // Mojang API commands
       get_player_uuid,
       get_player_profile,
       
-      // Egg commands
       egg::list_eggs,
       egg::get_egg,
       egg::list_eggs_by_category,
@@ -736,7 +699,6 @@ pub fn run() {
       egg::install_server_from_egg,
     ])
     .setup(|app| {
-      // Initialize logging for all builds
       app.handle().plugin(
         tauri_plugin_log::Builder::default()
           .level(log::LevelFilter::Info)

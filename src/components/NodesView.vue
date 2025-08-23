@@ -1,7 +1,6 @@
 <template>
   <div class="nodes-view">
     <v-container fluid>
-      <!-- Header with Add Node button -->
       <v-row class="mb-4">
         <v-col>
           <h2 class="text-h5 font-weight-bold">Server Nodes</h2>
@@ -18,7 +17,6 @@
         </v-col>
       </v-row>
       
-      <!-- Nodes list -->
       <v-row>
         <v-col cols="12">
           <v-card class="mb-4" v-if="isLoading">
@@ -218,7 +216,6 @@
         </v-col>
       </v-row>
       
-      <!-- Promotional Banner -->
       <v-row class="mt-4">
         <v-col cols="12">
           <v-card class="promo-banner" color="grey-darken-4">
@@ -249,7 +246,6 @@
       </v-row>
     </v-container>
     
-    <!-- Add Node Dialog -->
     <v-dialog v-model="showAddNodeDialog" max-width="600px">
       <v-card>
         <v-card-title class="text-h5 pb-2 pt-4 px-4">
@@ -267,7 +263,6 @@
             </v-stepper-header>
             
             <v-stepper-window>
-              <!-- Step 1: Generate Token -->
               <v-stepper-window-item value="1">
                 <div class="pa-4">
                   <p class="mb-4">Generate a pairing token to connect your VPS to Servermint.</p>
@@ -294,7 +289,6 @@
                 </div>
               </v-stepper-window-item>
               
-              <!-- Step 2: Install Agent -->
               <v-stepper-window-item value="2">
                 <div class="pa-4">
                   <p class="mb-4">Run the following command on your VPS to install the Servermint agent:</p>
@@ -326,7 +320,6 @@
                 </div>
               </v-stepper-window-item>
               
-              <!-- Step 3: Finish -->
               <v-stepper-window-item value="3">
                 <div class="pa-4 text-center">
                   <v-icon color="success" size="64">mdi-check-circle</v-icon>
@@ -375,7 +368,6 @@
       </v-card>
     </v-dialog>
     
-    <!-- Remove Node Confirmation Dialog -->
     <v-dialog v-model="showRemoveDialog" max-width="400px">
       <v-card>
         <v-card-title class="text-h5">Remove Node?</v-card-title>
@@ -403,8 +395,7 @@ export default {
       isLoading: true,
       nodes: [],
       updateInterval: null,
-      
-      // Add Node Dialog
+          
       showAddNodeDialog: false,
       addNodeStep: '1',
       pairingToken: '',
@@ -412,11 +403,9 @@ export default {
       checkingConnection: false,
       nodeName: '',
       
-      // Remove Node Dialog
       showRemoveDialog: false,
       nodeToRemove: null,
       
-      // Mock data for servers (will be replaced with actual data)
       servers: {
         'server-1': { name: 'Vanilla 1.21', status: 'online' },
         'server-2': { name: 'Paper 1.20', status: 'offline' },
@@ -429,18 +418,16 @@ export default {
       if (this.addNodeStep === '1') {
         return this.pairingToken !== '';
       } else if (this.addNodeStep === '2') {
-        return true; // Will be based on connection check
+        return true; 
       }
       return false;
     }
   },
   async mounted() {
     await this.loadNodes();
-    // Start periodic updates
     this.updateInterval = setInterval(this.loadNodes, 30000);
   },
   beforeUnmount() {
-    // Clear update interval
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
     }
@@ -470,7 +457,7 @@ export default {
     },
     
     getNodeIconColor() {
-      return 'white'; // Keep icon color consistent
+          return 'white'; 
     },
     
     formatNodeStatus(status) {
@@ -478,10 +465,9 @@ export default {
     },
     
     formatLastSeen(timestamp) {
-      // Format timestamp to relative time (e.g. "2 hours ago")
       const date = new Date(timestamp);
       const now = new Date();
-      const diff = Math.floor((now - date) / 1000); // seconds
+      const diff = Math.floor((now - date) / 1000); 
       
       if (diff < 60) return 'just now';
       if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
@@ -508,26 +494,22 @@ export default {
     },
     
     async refreshNode(node) {
-      // Refresh node info
       console.log('Refreshing node:', node.id);
       await this.loadNodes();
     },
     
     openServer(nodeId, serverId) {
       console.log('Opening server:', serverId, 'on node:', nodeId);
-      // Navigate to server management page
       this.$router.push(`/server/${serverId}?node=${nodeId}`);
     },
     
     createServer(node) {
       console.log('Creating server on node:', node.id);
-      // Navigate to server creation page with node pre-selected
       this.$router.push(`/create-server?node=${node.id}`);
     },
     
     editNode(node) {
       console.log('Editing node:', node.id);
-      // Open edit node dialog
     },
     
     confirmRemoveNode(node) {
@@ -549,7 +531,6 @@ export default {
       }
     },
     
-    // Add Node Dialog Methods
     openAddNodeDialog() {
       this.showAddNodeDialog = true;
       this.addNodeStep = '1';
@@ -560,14 +541,13 @@ export default {
     async generateToken() {
       this.generatingToken = true;
       try {
-        // Call relay server directly
         const response = await fetch('https://relay.servermint.app/api/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            userId: 'current-user' // TODO: Get from auth
+            userId: 'current-user' 
           })
         });
         
@@ -588,15 +568,12 @@ export default {
     
     copyToken() {
       navigator.clipboard.writeText(this.pairingToken);
-      // Show toast notification
       this.$emit('show-toast', 'Token copied to clipboard', 'success');
     },
     
     copyInstallCommand() {
-      // Include the token in the install command
       const command = `curl -sSL https://install.servermint.app | sudo TOKEN="${this.pairingToken}" bash`;
       navigator.clipboard.writeText(command);
-      // Show toast notification
       window.showSuccess('Install command copied to clipboard', 'Command copied. Run this on your VPS to install the agent.');
     },
     
@@ -605,17 +582,14 @@ export default {
       try {
         console.log(`Checking connection for token: ${this.pairingToken}`);
         
-        // Poll for node connection status
         let attempts = 0;
-        const maxAttempts = 30; // 30 seconds timeout
+        const maxAttempts = 30; 
         
         while (attempts < maxAttempts) {
-          // Check connection via WebSocket
           const ws = new WebSocket('wss://relay.servermint.app/ws');
           
           const connected = await new Promise((resolve) => {
             ws.onopen = () => {
-              // Send auth message
               ws.send(JSON.stringify({
                 type: 'Authenticate',
                 data: {
@@ -641,7 +615,6 @@ export default {
               ws.close();
             };
             
-            // Timeout after 1 second
             setTimeout(() => {
               resolve(false);
               ws.close();
@@ -682,8 +655,6 @@ export default {
       try {
         console.log('Finalizing node addition with name:', this.nodeName);
         
-        // Generate a new node ID that will match what the relay server will assign
-        // when the agent connects
         const nodeId = `node-${Date.now()}`;
         console.log(`Generated node ID: ${nodeId}`);
         
@@ -691,11 +662,11 @@ export default {
           id: nodeId,
           name: this.nodeName,
           node_type: 'Remote',
-          status: 'Connecting', // Set to connecting initially
+          status: 'Connecting', 
           config: {
             name: this.nodeName,
-            hostname: 'pending-connection', // Will be updated when agent reports
-            token: this.pairingToken // Store the token with the node
+            hostname: 'pending-connection', 
+            token: this.pairingToken 
           },
           last_seen: new Date().toISOString(),
           servers: []
@@ -707,7 +678,6 @@ export default {
         this.showAddNodeDialog = false;
         await this.loadNodes();
         
-        // Show success notification with instructions
         window.showSuccess('Node Registration Started', 
           `Node "${this.nodeName}" has been registered. Please complete the installation on your VPS by entering the token: ${this.pairingToken}`
         );

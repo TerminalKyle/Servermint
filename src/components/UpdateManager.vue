@@ -1,6 +1,5 @@
 <template>
   <div>
-    <!-- Update notification dialog -->
     <v-dialog v-model="showUpdateDialog" max-width="500" persistent>
       <v-card class="update-dialog">
         <v-card-title class="d-flex align-center">
@@ -54,7 +53,6 @@
       </v-card>
     </v-dialog>
 
-    <!-- Update notification snackbar -->
     <v-snackbar
       v-model="showUpdateSnackbar"
       color="primary"
@@ -91,13 +89,10 @@ export default {
     };
   },
   created() {
-    // Store update resource outside of Vue's reactivity
     this._updateResource = null;
   },
   mounted() {
-    // Only run inside Tauri; noop in plain browser
     if (!this.isTauri()) return;
-    // Small delay to ensure backend is ready
     setTimeout(() => this.checkForUpdates().catch(() => {}), 800);
   },
   beforeUnmount() {
@@ -112,14 +107,12 @@ export default {
         const update = await check({ timeout: 30000 });
         if (!update) return;
 
-        // Store the raw update instance
         this._updateResource = markRaw(update);
 
         this.updateInfo.version = update.version || '';
         this.updateInfo.body = update.body || '';
         this.showUpdateSnackbar = true;
       } catch (err) {
-        // Silently ignore in dev/offline; optionally log
         console.warn('Updater check failed:', err);
       }
     },
@@ -146,8 +139,6 @@ export default {
             this.downloadProgress = 100;
           }
         }, { timeout: 300000 });
-        // On Windows, app exits automatically during install (per docs).
-        // On other platforms, installation completes without mandatory restart.
         this.showUpdateDialog = false;
         this.showUpdateSnackbar = false;
         if (window.showSuccess) {

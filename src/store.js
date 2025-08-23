@@ -1,17 +1,11 @@
 import { reactive } from 'vue'
-// Import Tauri APIs directly
 import { invoke } from '@tauri-apps/api/core'
-
 import { remove, readTextFile, writeTextFile, readDir } from '@tauri-apps/plugin-fs';
-// Import HTTP plugin is not needed since we're using invoke directly
-// We'll use the browser's fetch API for simple HTTP requests
 
-// Helper function to download files
 async function mockDownloadFile(url, destination) {
   try {
     console.log(`[MOCK] Downloading ${url} to ${destination}`);
     
-    // Create an empty file at the destination
     try {
       await invoke('plugin:fs|write_text_file', { 
         path: destination, 
@@ -22,7 +16,6 @@ async function mockDownloadFile(url, destination) {
       console.error(`[MOCK] Error creating empty file: ${err}`);
     }
     
-    // Simulate download progress
     return new Promise((resolve) => {
       let progress = 0;
       const interval = setInterval(() => {
@@ -42,14 +35,12 @@ async function mockDownloadFile(url, destination) {
   }
 }
 
-// Tauri API wrapper
 const tauriAPI = {
   async createDir(path) {
     try {
       console.log(`Creating directory: ${path}`);
       
       try {
-        // Use the correct Tauri v2 file system API
         await invoke('plugin:fs|mkdir', { 
           path,
           recursive: true
@@ -73,13 +64,11 @@ const tauriAPI = {
       console.log(`Writing file: ${path}`);
       
       try {
-        // For text content, use writeTextFile
         if (typeof content === 'string') {
           await writeTextFile(path, content);
           console.log(`Successfully wrote text file: ${path}`);
           return { success: true };
         } else if (content instanceof Uint8Array) {
-          // For binary content, use our custom write_binary_file command
           await invoke('write_binary_file', { 
             path: path, 
             data: Array.from(content) 
@@ -87,16 +76,13 @@ const tauriAPI = {
           console.log(`Successfully wrote binary file: ${path}`);
           return { success: true };
         } else {
-          // For other types, convert to string or binary as appropriate
           console.log(`Converting content to appropriate format for: ${path}`);
           if (typeof content === 'object' && content !== null) {
-            // Try to convert to JSON string
             const jsonString = JSON.stringify(content, null, 2);
             await writeTextFile(path, jsonString);
             console.log(`Successfully wrote JSON file: ${path}`);
             return { success: true };
           } else {
-            // Convert to string
             const stringContent = String(content);
             await writeTextFile(path, stringContent);
             console.log(`Successfully wrote string file: ${path}`);
@@ -120,7 +106,6 @@ const tauriAPI = {
       console.log(`[readDir] Reading directory: ${path}`);
       
       try {
-        // Use the proper Tauri FS API function
         console.log(`[readDir] Calling readDir(${path})...`);
         const result = await readDir(path);
         console.log(`[readDir] Successfully read directory: ${path}`);
@@ -133,8 +118,6 @@ const tauriAPI = {
           throw new Error('readDir did not return an array');
         }
         
-        // Tauri FS API returns an array of file entries
-        // Each entry should have: name, size, modified, isDirectory
         const files = await Promise.all(result.map(async (file, index) => {
           console.log(`[readDir] Processing file entry ${index}:`, file);
           console.log(`[readDir] File entry type:`, typeof file);
@@ -143,22 +126,18 @@ const tauriAPI = {
           let fileSize = 0;
           let fileModified = new Date();
           
-          // Check if the file object has size information from readDir
           if (file.size !== undefined && file.size !== null) {
             fileSize = file.size;
             console.log(`[readDir] Using size from readDir: ${fileSize}`);
           } else {
-            // If no size from readDir, get size from our custom Rust command
             try {
               const filePath = path.endsWith('/') || path.endsWith('\\') ? path + file.name : path + '/' + file.name;
               
               if (file.isDirectory) {
-                // Get folder size for directories
                 console.log(`[readDir] Getting folder size for: ${filePath}`);
                 fileSize = await invoke('get_folder_size', { folderPath: filePath });
                 console.log(`[readDir] Folder size from Rust: ${fileSize}`);
               } else {
-                // Get file size for files
                 console.log(`[readDir] Getting file size for: ${filePath}`);
                 fileSize = await invoke('get_file_size', { filePath });
                 console.log(`[readDir] File size from Rust: ${fileSize}`);
@@ -189,7 +168,6 @@ const tauriAPI = {
         console.log(`[readDir] Error details:`, error);
         console.log(`[readDir] Falling back to mock implementation`);
         
-        // If the directory doesn't exist, return empty array
         if (error.toString().includes('cannot find the path') || 
             error.toString().includes('os error 3') ||
             error.toString().includes('does not exist')) {
@@ -197,7 +175,6 @@ const tauriAPI = {
           return [];
         }
         
-        // Only return mock data if it's a different error
         console.log(`[readDir] Returning mock directory contents for: ${path}`);
         return [
           { name: 'server.jar', size: 35728392, modified: new Date(), isDirectory: false },
@@ -336,9 +313,7 @@ eula=true`;
   },
 
   async showConfirmDialog(title, message) {
-    return new Promise((resolve) => {
-      // For now, use browser confirm dialog
-      // In a real app, you might want to use a custom modal
+    return new Promise((resolve) => { 
       const confirmed = confirm(`${title}\n\n${message}`);
       resolve(confirmed);
     });
@@ -380,7 +355,6 @@ eula=true`;
     }
   },
 
-  // MintMenu commands
   async startAllServers() {
     try {
       console.log('[startAllServers] Starting all offline servers');
@@ -468,7 +442,6 @@ eula=true`;
       console.log(`Downloading ${url} to ${destination}`);
       
       try {
-        // Try to use the Rust-based download function
         const result = await invoke('download_file', { 
           url, 
           destination 
@@ -478,7 +451,6 @@ eula=true`;
       } catch (error) {
         console.error(`Error using Rust download: ${error}`);
         
-        // Fall back to mock implementation
         console.log(`Falling back to mock implementation`);
         return await mockDownloadFile(url, destination);
       }
@@ -493,12 +465,10 @@ eula=true`;
       console.log(`Executing command: ${cmd}`);
       
       try {
-        // Split the command into program and args
         const parts = cmd.split(' ');
         const program = parts[0];
         const args = parts.slice(1);
         
-        // Fix the parameter structure for Tauri v2
         const result = await invoke('plugin:shell|execute', { 
           program,
           args
@@ -521,13 +491,11 @@ eula=true`;
       console.log(`Opening folder: ${path}`);
       
       try {
-        // Use the custom Rust command to open folder
         await invoke('open_folder', { path });
         console.log(`Successfully opened folder: ${path}`);
         return { success: true };
       } catch (error) {
         console.error(`Custom command error: ${error}`);
-        // Fallback to shell execute if custom command fails
         try {
           await invoke('plugin:shell|execute', { 
             program: 'explorer.exe', 
@@ -549,7 +517,6 @@ eula=true`;
     }
   },
   
-  // SFTP Methods
   async testSftpConnection(config) {
     try {
       console.log('Testing SFTP connection:', config.host);
@@ -564,7 +531,6 @@ eula=true`;
   
   async upload_file_sftp(config, local_path, remote_path) {
     try {
-      // Clean up paths
       const cleanLocalPath = local_path.replace(/\\/g, '/');
       const cleanRemotePath = remote_path.startsWith('/') ? remote_path : '/' + remote_path;
       const fileName = cleanRemotePath.split('/').pop();
@@ -578,7 +544,6 @@ eula=true`;
         fileName
       });
 
-      // First check if file exists before upload
       let beforeFiles = [];
       try {
         beforeFiles = await invoke('list_remote_files', { 
@@ -594,18 +559,16 @@ eula=true`;
         console.warn('Could not list files before upload:', e);
       }
 
-      // Try upload
       const success = await invoke('upload_file_sftp', { 
         config: {
           ...config,
-          remote_path: '/'  // Use root directory
+          remote_path: '/'
         }, 
         localPath: cleanLocalPath,
         remotePath: cleanRemotePath
       });
       console.log('Upload command result:', success);
 
-      // Verify file exists after upload
       if (success) {
         console.log('Upload reported success, verifying file exists...');
         try {
@@ -619,11 +582,9 @@ eula=true`;
           });
           console.log('Files after upload:', afterFiles);
 
-          // Extract just the filenames from the listing
           const filenames = afterFiles.map(f => f.split(/\s+/).pop());
           console.log('Found filenames:', filenames);
 
-          // Check if file exists in the list
           if (!filenames.includes(fileName)) {
             console.error('File not found after upload');
             return { success: false, error: 'File upload reported success but file not found' };
@@ -680,7 +641,6 @@ eula=true`;
   },
   
   async openDir(path) {
-    // Alias for openFolder for consistency
     return this.openFolder(path);
   },
   
@@ -689,7 +649,6 @@ eula=true`;
       console.log(`Checking for Java installation`);
       
       try {
-        // Fix the parameter structure for Tauri v2
         const result = await invoke('plugin:shell|execute', {
           program: 'java',
           args: ['-version']
@@ -725,21 +684,16 @@ eula=true`;
 
 
 
-// Create the reactive store
 export const store = reactive({
-  // Server management
   servers: [],
   serverProcesses: new Map(),
   serverOutputs: new Map(),
   downloadProgress: new Map(),
   
-  // Project management
   projects: [],
   
-  // Mod management
-  installedMods: new Map(), // Map of serverId -> mods array
+    installedMods: new Map(),
   
-  // Settings
   settings: {
     general: {
       firstRun: true,
@@ -761,18 +715,14 @@ export const store = reactive({
     }
   },
   
-  // Tauri API wrapper
   tauriAPI,
   
-  // Initialize the store
   init() {
     this.loadSettings();
-    this.loadProjects(); // Load projects on store initialization
+    this.loadProjects();
   },
   
-  // Methods
   async loadServers() {
-    // Prevent recursive calls
     if (this._loadingServers) {
       console.log('loadServers already in progress, skipping...');
       return;
@@ -784,7 +734,6 @@ export const store = reactive({
       const servers = await invoke('list_servers');
       console.log('Loaded servers from backend:', servers);
       
-      // Debug: Log each server's config
       if (servers && Array.isArray(servers)) {
         servers.forEach((server, index) => {
           console.log(`Server ${index}:`, {
@@ -796,21 +745,15 @@ export const store = reactive({
         });
       }
       
-      // Update the servers array with data from backend
       if (servers && Array.isArray(servers)) {
         this.servers = await Promise.all(servers.map(async server => {
-          // Check for server icon
           let icon = null;
           const iconPath = `${server.config.path}/icon.png`;
           console.log(`Looking for icon at: ${iconPath}`);
           try {
-            // Check if icon exists and read it
             try {
-              // Use a simple file existence check first
               const iconExists = await invoke('plugin:fs|exists', { path: iconPath });
               if (iconExists) {
-                // Icon loading disabled to prevent recursion
-                // TODO: Implement icon loading as a separate feature
                 icon = null;
                 console.log(`Icon loading disabled for server ${server.config.name} to prevent recursion`);
               } else {
@@ -831,13 +774,12 @@ export const store = reactive({
             status: server.status,
             path: server.config.path,
             icon: icon,
-            memoryAllocation: server.config.max_memory / 1024, // Convert MB to GB
+            memoryAllocation: server.config.max_memory / 1024,
             autoStart: false,
             created: new Date().toISOString()
           };
         }));
       } else {
-        // If no servers returned, start with empty array
         this.servers = [];
       }
       
@@ -845,7 +787,6 @@ export const store = reactive({
       console.log('Server IDs in array:', this.servers.map(s => s.id));
     } catch (error) {
       console.error('Error loading servers from backend:', error);
-      // Start with empty array if backend loading fails
       this.servers = [];
     } finally {
       this._loadingServers = false;
@@ -857,10 +798,8 @@ export const store = reactive({
   },
   
   async createServer(serverData) {
-    // Generate a unique ID for the server with timestamp and random suffix
     let currentServerId = `server-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    // Check if server folder already exists
     try {
       const existingFiles = await tauriAPI.readDir(serverData.path);
       if (existingFiles && existingFiles.length > 0) {
@@ -868,7 +807,6 @@ export const store = reactive({
       }
       console.log(`Server folder is empty or doesn't exist, proceeding with creation: ${serverData.path}`);
     } catch (error) {
-      // If folder doesn't exist or path not found, that's fine - we'll create it
       if (error.message.includes('does not exist') || 
           error.message.includes('cannot find the path') ||
           error.message.includes('os error 3')) {
@@ -880,7 +818,6 @@ export const store = reactive({
     }
     
     try {
-      // Create a server object
       const newServer = {
         id: currentServerId,
         name: serverData.name,
@@ -888,19 +825,17 @@ export const store = reactive({
         type: serverData.type,
         status: 'installing',
         path: serverData.path,
-        icon: null, // Will be updated after saving icon
+        icon: null,
         memoryAllocation: serverData.memoryAllocation || 4,
         autoStart: serverData.autoStart || false,
         created: new Date().toISOString()
       };
       
-      // Initialize download progress
       this.downloadProgress.set(currentServerId, {
         progress: 0,
         status: 'preparing'
       });
       
-      // Create the server directory
       console.log(`Creating server directory at: ${serverData.path}`);
       try {
         await tauriAPI.createDir(serverData.path);
@@ -909,10 +844,8 @@ export const store = reactive({
         throw new Error(`Failed to create server directory: ${error.message || 'Unknown error'}`);
       }
 
-      // Save server icon if provided
       if (serverData.icon) {
         try {
-          // Convert base64 to binary
           const base64Data = serverData.icon.split(',')[1];
           const binaryData = atob(base64Data);
           const uint8Array = new Uint8Array(binaryData.length);
@@ -920,26 +853,21 @@ export const store = reactive({
             uint8Array[i] = binaryData.charCodeAt(i);
           }
 
-          // Save icon as icon.png
           const iconPath = `${serverData.path}/icon.png`;
           await invoke('plugin:fs|write_file', { 
             path: iconPath,
             contents: Array.from(uint8Array)
           });
 
-          // Update server object with icon path
           newServer.icon = iconPath;
           console.log('Server icon saved:', iconPath);
         } catch (error) {
           console.error('Failed to save server icon:', error);
-          // Non-critical error, continue without icon
         }
       }
       
-      // Update download progress
       this.downloadProgress.get(currentServerId).status = 'downloading';
       
-      // Use the new setup_server command from Rust
       console.log('Setting up server using Rust backend...');
       this.downloadProgress.get(currentServerId).status = 'setting up server';
       
@@ -956,24 +884,17 @@ export const store = reactive({
       } catch (error) {
         console.error('Error setting up server:', error);
         
-        // If it's a duplicate ID error, generate a new ID and retry
         if (error.includes('already exists')) {
           console.log('Server ID already exists, generating new ID...');
-          // Generate a new unique ID with timestamp and random suffix
           const newServerId = `server-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           console.log('New server ID:', newServerId);
           
-          // Update the server object with new ID
           newServer.id = newServerId;
           
-          // Update download progress with new ID
           this.downloadProgress.set(newServerId, this.downloadProgress.get(currentServerId));
           this.downloadProgress.delete(currentServerId);
           
-          // Update current server ID
           currentServerId = newServerId;
-          
-          // Note: setup_server will handle adding the server to the backend manager
           
           await invoke('setup_server', {
             serverId: newServerId,
@@ -989,13 +910,10 @@ export const store = reactive({
         }
       }
       
-      // Update download progress
       this.downloadProgress.get(currentServerId).progress = 80;
       
-      // Create start scripts
       console.log('Creating start scripts');
       
-      // Create start.bat file for Windows
       const startBatPath = `${serverData.path}/start.bat`;
       const startBat = `@echo off
 start /min java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCustomJvmArgs ? this.settings.java.jvmArgs : '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+MaxGCPauseMillis=200'} -jar server.jar nogui
@@ -1005,10 +923,8 @@ pause`;
         await tauriAPI.writeFile(startBatPath, startBat);
       } catch (error) {
         console.error(`Failed to create start.bat: ${error}`);
-        // Non-critical error, continue
       }
       
-      // Create start.sh file for Linux/Mac
       const startShPath = `${serverData.path}/start.sh`;
       const startSh = `#!/bin/sh
 java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCustomJvmArgs ? this.settings.java.jvmArgs : '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+MaxGCPauseMillis=200'} -jar server.jar nogui`;
@@ -1017,19 +933,15 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         await tauriAPI.writeFile(startShPath, startSh);
       } catch (error) {
         console.error(`Failed to create start.sh: ${error}`);
-        // Non-critical error, continue
       }
       
-      // Update server status
       newServer.status = 'offline';
       
-      // Save server icon if provided
       if (serverData.icon && serverData.icon.startsWith('data:image/')) {
         try {
           console.log('Saving server icon...');
           const iconPath = `${serverData.path}/icon.png`;
           
-          // Convert data URL to binary data
           const base64Data = serverData.icon.split(',')[1];
           const binaryData = atob(base64Data);
           const bytes = new Uint8Array(binaryData.length);
@@ -1037,50 +949,40 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
             bytes[i] = binaryData.charCodeAt(i);
           }
           
-          // Save icon file
           await tauriAPI.writeFile(iconPath, bytes);
           console.log('Server icon saved successfully');
         } catch (error) {
           console.warn('Failed to save server icon:', error);
-          // Don't fail the server creation for icon issues
         }
       }
       
-      // Update download progress
       this.downloadProgress.get(currentServerId).progress = 100;
       this.downloadProgress.get(currentServerId).status = 'completed';
       
-      // Add the new server to the local array instead of reloading
       this.servers.push(newServer);
       
-      // Find the created server in the local array
       const createdServer = this.servers.find(s => s.path === serverData.path);
       
       console.log(`Server "${serverData.name}" created successfully at ${serverData.path}`);
       
-      // Show success toast
       if (window.showSuccess) {
         window.showSuccess('Server Created!', `"${serverData.name}" has been set up successfully.`);
       }
       
-      // Return the created server
       return { success: true, server: createdServer || newServer };
     } catch (error) {
       console.error('Error creating server:', error);
       
-      // Update server status to failed
       const server = this.servers.find(s => s.name === serverData.name && s.path === serverData.path);
       if (server) {
         server.status = 'failed';
         
-        // Update download progress
         if (server.id) {
           this.downloadProgress.get(server.id).status = 'failed';
           this.downloadProgress.get(server.id).error = error.message || 'Unknown error';
         }
       }
       
-      // Clean up download progress on failure
       this.downloadProgress.delete(currentServerId);
       
       return { success: false, error };
@@ -1096,27 +998,21 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       
       console.log(`Starting server ${serverId} at path: ${server.path}`);
       
-      // Check if server is already running
       if (this.isServerRunning(serverId)) {
         console.log(`Server ${serverId} is already running, stopping previous instance first...`);
         
-        // Stop the existing server instance
         try {
           await this.stopServer(serverId);
           console.log(`Previous instance of server ${serverId} stopped successfully`);
           
-          // Wait a moment for cleanup
           await new Promise(resolve => setTimeout(resolve, 2000));
         } catch (stopError) {
           console.warn(`Failed to stop previous instance: ${stopError.message}`);
-          // Continue anyway, the backend might handle this
         }
       }
       
-      // Update server status
       server.status = 'starting';
       
-      // Create a server process object for UI
       const serverProcess = {
         id: serverId,
         output: [
@@ -1127,31 +1023,25 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         isRunning: true
       };
       
-      // Add to running servers
       this.serverProcesses.set(serverId, serverProcess);
       
-      // Use the Tauri backend to start the server
       try {
         console.log('Calling Tauri start_server command...');
         await invoke('start_server', { id: serverId });
         console.log('Server started successfully via Tauri backend');
         
-        // Update server status
         server.status = 'online';
         
-        // Show success toast
         if (window.showSuccess) {
           window.showSuccess('Server Started!', `"${server.name}" is now running.`);
         }
         
-        // Start polling for real server output
         this.startOutputPolling(serverId);
         
         return { success: true };
       } catch (error) {
         console.error('Error starting server via Tauri:', error);
         
-        // Check if it's a Java version error
         if (error.includes('UnsupportedClassVersionError') || error.includes('class file version')) {
           console.log('Detected Java version error, attempting to setup Java...');
           
@@ -1159,19 +1049,15 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
             const javaResult = await this.setupJava();
             if (javaResult.success) {
               console.log('Java setup successful, retrying server start...');
-              // Retry starting the server
               await invoke('start_server', { id: serverId });
               console.log('Server started successfully after Java setup');
               
-                      // Update server status
         server.status = 'online';
         
-        // Show success toast
         if (window.showSuccess) {
           window.showSuccess('Server Started!', `"${server.name}" is now running.`);
         }
         
-        // Start polling for real server output
         this.startOutputPolling(serverId);
         
         return { success: true };
@@ -1184,19 +1070,14 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
           }
         }
         
-        // Check if it's a "Server is already running" error
         if (error.includes('already running') || error.includes('Server is already running')) {
           console.log('Server is already running, attempting to connect to existing instance...');
           
-          // Try to connect to the existing server instance
           try {
-            // Update server status to online since it's already running
             server.status = 'online';
             
-            // Start polling for the existing server
             this.startOutputPolling(serverId);
             
-            // Show success message
             if (window.showSuccess) {
               window.showSuccess('Server Connected!', `"${server.name}" is already running and has been connected.`);
             }
@@ -1213,13 +1094,11 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     } catch (error) {
       console.error('Error starting server:', error);
       
-      // Update server status
       const server = this.getServerById(serverId);
       if (server) {
         server.status = 'offline';
       }
       
-      // Remove from running servers
       this.serverProcesses.delete(serverId);
       
       return { success: false, error: error.message || 'Unknown error' };
@@ -1233,28 +1112,22 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         throw new Error(`Server with ID ${serverId} not found`);
       }
       
-      // Update server status
       server.status = 'stopping';
       
-      // Add stopping message to console
       this.addServerOutput(serverId, '[INFO] Stopping server...');
       
-      // Stop output polling
       if (this.outputPollingIntervals && this.outputPollingIntervals[serverId]) {
         clearInterval(this.outputPollingIntervals[serverId]);
         delete this.outputPollingIntervals[serverId];
       }
       
-      // Use the Tauri backend to stop the server
       try {
         await invoke('stop_server', { id: serverId });
         console.log('Server stopped successfully via Tauri backend');
         
-        // Update server status
         server.status = 'offline';
         this.addServerOutput(serverId, '[INFO] Server stopped');
         
-        // Remove from running servers
         this.serverProcesses.delete(serverId);
         
         return { success: true };
@@ -1265,7 +1138,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     } catch (error) {
       console.error('Error stopping server:', error);
       
-      // Reset server status on error
       const server = this.getServerById(serverId);
       if (server) {
         server.status = 'online';
@@ -1282,10 +1154,8 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         throw new Error(`Server process with ID ${serverId} not found`);
       }
       
-      // Add command to console output
       this.addServerOutput(serverId, `> ${command}`);
       
-      // Send the command to the server via Tauri
       try {
         await invoke('send_server_command', { id: serverId, command });
         console.log('Command sent successfully to server');
@@ -1307,12 +1177,10 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     if (serverProcess) {
       serverProcess.output.push(message);
       
-      // Limit output to last 1000 lines
       if (serverProcess.output.length > 1000) {
         serverProcess.output.shift();
       }
       
-      // Parse players from the new message
       this.parsePlayersFromOutput(serverId, serverProcess.output);
     }
   },
@@ -1328,36 +1196,29 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         return;
       }
 
-      // Initialize players array if it doesn't exist
       if (!serverProcess.players) {
         serverProcess.players = [];
         console.log(`[Player Tracking] Initialized players array for: ${serverId}`);
       }
 
-      // Track players we've seen in this output
       const currentPlayers = new Set();
       
-      // Debug: Show last few lines to see what we're working with
       const lastLines = output.slice(-10);
       console.log(`[Player Tracking] Last 10 lines of output:`, lastLines);
       
-      // Parse each line for player activity
       for (const line of output) {
         if (!line || typeof line !== 'string') continue;
 
-        // Debug: Check if line contains "joined the game"
         if (line.includes('joined the game')) {
           console.log(`[Player Tracking] Found line with 'joined the game': "${line}"`);
         }
 
-        // Parse player join messages
         const joinMatch = line.match(/\[.*?\/INFO\]: (\w+) joined the game/);
         if (joinMatch) {
           const playerName = joinMatch[1];
           currentPlayers.add(playerName);
           console.log(`[Player Tracking] Found join message for: ${playerName}`);
           
-          // Add player if not already in the list
           if (!serverProcess.players.find(p => p.name === playerName)) {
             serverProcess.players.push({
               name: playerName,
@@ -1369,7 +1230,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
             console.log(`[Player Tracking] Added player: ${playerName}`);
             console.log(`[Player Tracking] Current players: ${serverProcess.players.map(p => p.name).join(', ')}`);
             
-            // Trigger enhanced player data fetching
             this.triggerEnhancedPlayerDataFetch(serverId, playerName);
           } else {
             console.log(`[Player Tracking] Player already exists: ${playerName}`);
@@ -1381,7 +1241,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         const leaveMatch = line.match(/\[.*?\/INFO\]: (\w+) left the game/);
         if (leaveMatch) {
           const playerName = leaveMatch[1];
-          // Remove player from the list
           const playerIndex = serverProcess.players.findIndex(p => p.name === playerName);
           if (playerIndex !== -1) {
             serverProcess.players.splice(playerIndex, 1);
@@ -1390,13 +1249,11 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
           continue;
         }
 
-        // Parse player chat messages (to detect online players)
         const chatMatch = line.match(/\[.*?\/INFO\]: <(\w+)> .+/);
         if (chatMatch) {
           const playerName = chatMatch[1];
           currentPlayers.add(playerName);
           
-          // Add player if not already in the list
           if (!serverProcess.players.find(p => p.name === playerName)) {
             serverProcess.players.push({
               name: playerName,
@@ -1410,7 +1267,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
           continue;
         }
 
-        // Parse player death messages
         const deathMatch = line.match(/\[.*?\/INFO\]: (\w+) was slain by (\w+)/);
         if (deathMatch) {
           const victim = deathMatch[1];
@@ -1418,7 +1274,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
           currentPlayers.add(victim);
           currentPlayers.add(killer);
           
-          // Add players if not already in the list
           [victim, killer].forEach(playerName => {
             if (!serverProcess.players.find(p => p.name === playerName)) {
               serverProcess.players.push({
@@ -1434,13 +1289,11 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
           continue;
         }
 
-        // Parse other player activity (commands, etc.)
         const commandMatch = line.match(/\[.*?\/INFO\]: (\w+): \//);
         if (commandMatch) {
           const playerName = commandMatch[1];
           currentPlayers.add(playerName);
           
-          // Add player if not already in the list
           if (!serverProcess.players.find(p => p.name === playerName)) {
             serverProcess.players.push({
               name: playerName,
@@ -1455,7 +1308,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         }
       }
 
-      // Update playtime for all current players
       const now = Date.now();
       serverProcess.players.forEach(player => {
         if (player.joinTime) {
@@ -1485,7 +1337,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     try {
       console.log(`[Player Tracking] Triggering enhanced data fetch for: ${playerName}`);
       
-      // Emit a custom event that the Vue component can listen to
       const event = new CustomEvent('player-joined', {
         detail: {
           serverId: serverId,
@@ -1503,18 +1354,15 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   startOutputPolling(serverId) {
     console.log(`[Output Polling] Starting output polling for server: ${serverId}`);
     
-    // Clear any existing polling interval
     if (this.outputPollingIntervals && this.outputPollingIntervals[serverId]) {
       clearInterval(this.outputPollingIntervals[serverId]);
       console.log(`[Output Polling] Cleared existing polling interval for server: ${serverId}`);
     }
     
-    // Initialize polling intervals if not exists
     if (!this.outputPollingIntervals) {
       this.outputPollingIntervals = {};
     }
     
-    // Ensure server process exists
     if (!this.serverProcesses.has(serverId)) {
       console.log(`[Output Polling] Creating server process for: ${serverId}`);
       this.serverProcesses.set(serverId, {
@@ -1525,7 +1373,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       });
     }
     
-    // Start polling for server output every 500ms
     this.outputPollingIntervals[serverId] = setInterval(async () => {
       console.log(`[Output Polling] Polling server output for: ${serverId}`);
       
@@ -1536,11 +1383,9 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         if (output && Array.isArray(output)) {
           const serverProcess = this.serverProcesses.get(serverId);
           if (serverProcess) {
-            // Replace the output with the real server output
             serverProcess.output = output;
             console.log(`[Output Polling] Updated output for ${serverId}, now has ${output.length} lines`);
             
-            // Parse players from console output
             this.parsePlayersFromOutput(serverId, output);
           } else {
             console.warn(`[Output Polling] No server process found for: ${serverId}`);
@@ -1551,7 +1396,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       } catch (error) {
         console.error(`[Output Polling] Error polling server output for ${serverId}:`, error);
         
-        // If server not found, stop polling and clean up
         if (error.toString().includes('not found')) {
           console.log(`[Output Polling] Server not found, stopping polling for: ${serverId}`);
           clearInterval(this.outputPollingIntervals[serverId]);
@@ -1576,22 +1420,17 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       
       const fullPath = path ? `${server.path}/${path}` : server.path;
       
-      // Read directory contents
       const entries = await tauriAPI.readDir(fullPath);
       let files = [];
       
       for (const entry of entries) {
         if (entry.isDirectory && recursive) {
-          // Get relative path from server root
           const relativePath = path ? `${path}/${entry.name}` : entry.name;
           
-          // Recursively get files from subdirectory
           const subDirResult = await this.getServerFiles(serverId, relativePath, true);
           if (subDirResult.success) {
-            // Add subdirectory files with updated paths
             files = files.concat(subDirResult.files.map(file => ({
               ...file,
-              // Update path to be relative to the original request
               name: `${entry.name}/${file.name}`
             })));
           }
@@ -1606,7 +1445,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     }
   },
 
-  // New function specifically for recursive file listing
   async getServerFilesRecursive(serverId, path = '') {
     return this.getServerFiles(serverId, path, true);
   },
@@ -1622,7 +1460,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       const fullPath = `${server.path}/${filePath}`;
       console.log(`Full file path: ${fullPath}`);
       
-      // Read file contents
       const content = await tauriAPI.readTextFile(fullPath);
       console.log(`File content read, length: ${content?.length || 0}`);
       console.log(`File content preview: ${content?.substring(0, 100)}`);
@@ -1647,7 +1484,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       const fullPath = `${server.path}/${filePath}`;
       console.log(`Full file path: ${fullPath}`);
       
-      // Write file contents
       const result = await tauriAPI.writeFile(fullPath, content);
       console.log(`Write result:`, result);
       
@@ -1665,7 +1501,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         throw new Error(`Server with ID ${serverId} not found`);
       }
       
-      // Open folder
       await tauriAPI.openFolder(server.path);
       
       return { success: true };
@@ -1709,20 +1544,17 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       const server = this.getServerById(serverId);
       if (!server) return 'unknown';
 
-      // Check if we have a running process
       if (this.isServerRunning(serverId)) {
         server.status = 'online';
         return 'online';
       }
 
-      // Try to check with the backend
       try {
         const status = await invoke('get_server_status', { id: serverId });
         server.status = status;
         return status;
       } catch (error) {
         console.warn(`Could not get server status from backend: ${error}`);
-        // Fall back to stored status
         return server.status || 'offline';
       }
     } catch (error) {
@@ -1736,19 +1568,15 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   },
   
   cleanupServer(serverId) {
-    // Stop output polling
     if (this.outputPollingIntervals && this.outputPollingIntervals[serverId]) {
       clearInterval(this.outputPollingIntervals[serverId]);
       delete this.outputPollingIntervals[serverId];
     }
     
-    // Remove from running servers
     this.serverProcesses.delete(serverId);
     
-    // Remove from download progress
     this.downloadProgress.delete(serverId);
     
-    // Remove from servers array
     const index = this.servers.findIndex(s => s.id === serverId);
     if (index !== -1) {
       this.servers.splice(index, 1);
@@ -1757,26 +1585,21 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   
   async deleteServer(serverId) {
     try {
-      // Get server info before deletion
       const server = this.getServerById(serverId);
       if (!server) {
         throw new Error('Server not found');
       }
       
-      // Remove from backend first
       await invoke('remove_server', { id: serverId });
       console.log('Server removed from backend');
       
-      // Remove server folder
       try {
         await tauriAPI.removeDir(server.path);
         console.log('Server folder removed:', server.path);
       } catch (folderError) {
         console.warn('Could not remove server folder:', folderError);
-        // Don't fail the deletion if folder removal fails
       }
       
-      // Clean up from frontend
       this.cleanupServer(serverId);
       
       return { success: true };
@@ -1836,7 +1659,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   
   saveSettings() {
     try {
-      // Save settings to localStorage for persistence
       localStorage.setItem('servermint-settings', JSON.stringify(this.settings));
       console.log('Settings saved successfully');
     } catch (error) {
@@ -1849,7 +1671,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       const savedSettings = localStorage.getItem('servermint-settings');
       if (savedSettings) {
         const parsed = JSON.parse(savedSettings);
-        // Merge saved settings with defaults
         this.settings = { ...this.settings, ...parsed };
         console.log('Settings loaded successfully');
       }
@@ -1858,7 +1679,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     }
   },
   
-  // Project management methods
   addProject(projectData) {
     this.projects.push(projectData);
     this.saveProjects();
@@ -1868,10 +1688,8 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   removeProject(projectId) {
     const project = this.projects.find(p => p.id === projectId);
     if (project) {
-      // Remove the project folder from filesystem
       this.deleteProjectFolder(project.location);
       
-      // Remove from projects array
       const index = this.projects.findIndex(p => p.id === projectId);
       if (index !== -1) {
         this.projects.splice(index, 1);
@@ -1891,7 +1709,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     }
   },
   
-  // SFTP Methods
   async testSftpConnection(config) {
     try {
       console.log('Testing SFTP connection:', config.host);
@@ -1938,10 +1755,8 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   
   async listRemoteFiles(config, path) {
     try {
-      // Clean up the hostname
       const cleanHost = config.host.replace(/^(sftp|ftp|ssh):\/\//, '');
       
-      // Ensure path starts with /
       const cleanPath = path.startsWith('/') ? path : '/' + path;
       
       console.log('Listing remote files:', {
@@ -1951,7 +1766,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
         path: cleanPath
       });
 
-      // Use list_remote_files
       console.log('Falling back to list_remote_files...');
       let result = await invoke('list_remote_files', { 
         config: {
@@ -1984,7 +1798,6 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       return result;
       }
 
-      // If both methods fail, use mock data
       console.log('All methods failed, using mock data');
       return [{
         name: 'test.yml',
@@ -2043,11 +1856,9 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   },
   
   showToast(message, type = 'info') {
-    // This would integrate with your toast notification system
     console.log(`Toast: ${message} (${type})`);
   },
 
-  // File operations
   async removeFile(filePath) {
     try {
       console.log(`[store] Removing file: ${filePath}`);
@@ -2077,12 +1888,11 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       return result;
     } catch (error) {
       console.error(`[store] Error showing confirm dialog: ${error}`);
-      // Fallback to browser confirm
       return confirm(`${title}\n\n${message}`);
     }
   },
 
-  // File operations
+
   async renameFile(oldPath, newName) {
     try {
       console.log(`[store] Renaming file: ${oldPath} to ${newName}`);
@@ -2116,7 +1926,7 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
     }
   },
 
-  // MintMenu methods
+  
   async startAllServers() {
     try {
       console.log(`[store] Starting all servers`);
@@ -2205,26 +2015,21 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
       return '••••••••';
     }
     
-    // Extract IP from server path or use localhost
     const path = server.path || '';
     if (path.includes(':')) {
-      // If path contains port, extract IP
       const parts = path.split(':');
       return parts[0];
     }
     
-    // Default to localhost for local servers
     return 'localhost';
   },
 
-  // Mod management methods
+  
   async getInstalledMods(serverId) {
     try {
       if (!this.installedMods.has(serverId)) {
-        // Initialize empty array if no mods for this server
         this.installedMods.set(serverId, []);
         
-        // Try to load mods from server's mods folder
         const server = this.getServerById(serverId);
         if (server) {
           const modsPath = `${server.path}/mods`;
@@ -2306,5 +2111,5 @@ java -Xmx${serverData.memoryAllocation || 4}G -Xms1G ${this.settings.java.useCus
   }
 });
 
-// Initialize the store
+
 store.init(); 

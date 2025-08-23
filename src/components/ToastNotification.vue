@@ -39,7 +39,6 @@ export default {
     }
   },
   mounted() {
-    // Make the toast system globally available
     window.showToast = this.showToast;
     window.showSuccess = this.showSuccess;
     window.showError = this.showError;
@@ -47,7 +46,6 @@ export default {
     window.showInfo = this.showInfo;
   },
   beforeUnmount() {
-    // Clean up global references
     delete window.showToast;
     delete window.showSuccess;
     delete window.showError;
@@ -67,7 +65,6 @@ export default {
       
       this.toasts.push(toast);
       
-      // Auto-remove after duration
       if (duration > 0) {
         const startTime = Date.now();
         const progressInterval = setInterval(() => {
@@ -234,7 +231,6 @@ export default {
   background: linear-gradient(90deg, rgba(59, 130, 246, 0.8) 0%, rgba(59, 130, 246, 0.4) 100%);
 }
 
-/* Toast animations */
 .toast-enter-active,
 .toast-leave-active {
   transition: all 0.3s ease;
@@ -253,8 +249,7 @@ export default {
 .toast-move {
   transition: transform 0.3s ease;
 }
-
-/* Responsive design */
+    
 @media (max-width: 768px) {
   .toast-container {
     top: 10px;

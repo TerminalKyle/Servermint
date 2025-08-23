@@ -60,7 +60,6 @@ impl ServerManager {
             persistence_file,
         };
         
-        // Load existing servers from disk
         if let Err(e) = manager.load_servers() {
             println!("Warning: Failed to load servers from disk: {}", e);
         }
@@ -81,7 +80,6 @@ impl ServerManager {
             stdin: None,
         });
 
-        // Save to disk after adding
         if let Err(e) = self.save_servers() {
             println!("Warning: Failed to save servers after adding {}: {}", id, e);
         }
@@ -96,7 +94,6 @@ impl ServerManager {
             return Err("Server is already running".to_string());
         }
 
-        // Check if server files exist
         let is_bedrock = server.config.server_type.to_lowercase() == "pocketmine";
         
         if is_bedrock {
@@ -111,25 +108,21 @@ impl ServerManager {
             }
         }
 
-        // Try to start the server
         self.try_start_server(id)
     }
     
     fn try_start_server(&mut self, id: &str) -> Result<(), String> {
         let server = self.servers.get_mut(id).ok_or_else(|| format!("Server {} not found", id))?;
 
-        // Check if this is a Bedrock server
         let is_bedrock = server.config.server_type.to_lowercase() == "pocketmine";
 
         if is_bedrock {
-            // For Bedrock servers, we use PHP
-            // Try to find PHP in the server directory first, then system PATH
             let php_path = if std::path::Path::new(&format!("{}/bin/php/php.exe", server.config.path)).exists() {
                 format!("{}/bin/php/php.exe", server.config.path)
             } else if std::path::Path::new(&format!("{}/php.exe", server.config.path)).exists() {
                 format!("{}/php.exe", server.config.path)
             } else {
-                "php".to_string() // Fall back to system PHP
+                "php".to_string()
             };
             
             println!("Starting Bedrock server {} with PHP at: {}", id, php_path);
@@ -137,34 +130,27 @@ impl ServerManager {
             let mut command = Command::new(&php_path);
             command.arg("PocketMine-MP.phar");
             
-            // Set working directory
             command.current_dir(&server.config.path);
             
-            // Capture stdout, stderr, and stdin
             command.stdout(Stdio::piped());
             command.stderr(Stdio::piped());
             command.stdin(Stdio::piped());
             
-            // Hide the window on Windows
             #[cfg(target_os = "windows")]
-            command.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+            command.creation_flags(0x08000000);
             
             println!("Executing Bedrock command: {:?}", command);
             
-            // Start the process
             match command.spawn() {
                 Ok(mut child) => {
                     println!("Bedrock server {} started successfully with PID: {}", id, child.id());
                     
-                    // Get stdout, stderr, and stdin handles
                     let stdout = child.stdout.take().expect("Failed to capture stdout");
                     let stderr = child.stderr.take().expect("Failed to capture stderr");
                     let stdin = child.stdin.take().expect("Failed to capture stdin");
                     
-                    // Clone the server output Arc for the threads
                     let output_clone = server.output.clone();
                     
-                    // Spawn a thread to read stdout
                     thread::spawn(move || {
                         let reader = BufReader::new(stdout);
                         for line in reader.lines() {
@@ -176,7 +162,6 @@ impl ServerManager {
                         }
                     });
                     
-                    // Spawn a thread to read stderr
                     let output_clone = server.output.clone();
                     thread::spawn(move || {
                         let reader = BufReader::new(stderr);
@@ -201,12 +186,9 @@ impl ServerManager {
                 },
             }
         } else {
-            // For Java servers, use the existing logic
-            // Build the Java command
             let java_path = if let Some(custom_path) = &server.config.java_path {
                 custom_path.clone()
             } else {
-                // Try to get the appropriate Java version for this server
                 let version = &server.config.version;
                 let required_java = if version.starts_with("1.21") || version.starts_with("1.22") {
                     "21"
@@ -216,7 +198,6 @@ impl ServerManager {
                     "17"
                 };
                 
-                // Try to get local Java first, fall back to system Java
                 match get_java_path_internal(Some(required_java.to_string())) {
                     Ok(path) => path,
                     Err(_) => "java".to_string()
@@ -227,50 +208,40 @@ impl ServerManager {
             
             let mut command = Command::new(&java_path);
             
-            // Add memory settings
             command.arg(format!("-Xms{}M", server.config.min_memory));
             command.arg(format!("-Xmx{}M", server.config.max_memory));
             
-            // Add custom JVM args if any
             if let Some(jvm_args) = &server.config.jvm_args {
                 for arg in jvm_args.split_whitespace() {
                     command.arg(arg);
                 }
             }
             
-            // Add jar file
             command.arg("-jar");
             command.arg("server.jar");
             command.arg("nogui");
             
-            // Set working directory
             command.current_dir(&server.config.path);
             
-            // Capture stdout, stderr, and stdin
             command.stdout(Stdio::piped());
             command.stderr(Stdio::piped());
             command.stdin(Stdio::piped());
             
-            // Hide the window on Windows - use CREATE_NO_WINDOW to prevent command prompt from showing
             #[cfg(target_os = "windows")]
-            command.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+            command.creation_flags(0x08000000);
             
             println!("Executing Java command: {:?}", command);
             
-            // Start the process
             match command.spawn() {
                 Ok(mut child) => {
                     println!("Java server {} started successfully with PID: {}", id, child.id());
                     
-                    // Get stdout, stderr, and stdin handles
                     let stdout = child.stdout.take().expect("Failed to capture stdout");
                     let stderr = child.stderr.take().expect("Failed to capture stderr");
                     let stdin = child.stdin.take().expect("Failed to capture stdin");
                     
-                    // Clone the server output Arc for the threads
                     let output_clone = server.output.clone();
                     
-                    // Spawn a thread to read stdout
                     thread::spawn(move || {
                         let reader = BufReader::new(stdout);
                         for line in reader.lines() {
@@ -282,7 +253,6 @@ impl ServerManager {
                         }
                     });
                     
-                    // Spawn a thread to read stderr
                     let output_clone = server.output.clone();
                     thread::spawn(move || {
                         let reader = BufReader::new(stderr);
@@ -313,7 +283,6 @@ impl ServerManager {
         let server = self.servers.get_mut(id).ok_or_else(|| format!("Server {} not found", id))?;
         
         if let Some(mut process) = server.process.take() {
-            // Try to terminate gracefully
             match process.kill() {
                 Ok(_) => {
                     server.status = "offline".to_string();
@@ -333,8 +302,8 @@ impl ServerManager {
             id: id.to_string(),
             config: server.config.clone(),
             status: server.status.clone(),
-            players: 0, // In a real implementation, this would query the server
-            max_players: 20, // In a real implementation, this would be from server.properties
+            players: 0,
+            max_players: 20,
         })
     }
 
@@ -352,9 +321,7 @@ impl ServerManager {
 
     pub fn remove_server(&mut self, id: &str) -> Result<(), String> {
         if self.servers.contains_key(id) {
-            // Stop the server if it's running
             if let Err(e) = self.stop_server(id) {
-                // Only log as error if it's not just "not running"
                 if !e.contains("not running") {
                 eprintln!("Error stopping server during removal: {}", e);
                 } else {
@@ -364,7 +331,6 @@ impl ServerManager {
             
             self.servers.remove(id);
             
-            // Save to disk after removing
             if let Err(e) = self.save_servers() {
                 println!("Warning: Failed to save servers after removing {}: {}", id, e);
             }
@@ -376,7 +342,6 @@ impl ServerManager {
     }
     
     pub fn clear_all_servers(&mut self) {
-        // Stop all running servers
         for (id, server) in self.servers.iter_mut() {
             if let Some(mut process) = server.process.take() {
                 let _ = process.kill();
@@ -384,11 +349,9 @@ impl ServerManager {
             }
         }
         
-        // Clear all servers
         self.servers.clear();
         println!("Cleared all servers from manager");
         
-        // Save to disk after clearing
         if let Err(e) = self.save_servers() {
             println!("Warning: Failed to save servers after clearing: {}", e);
         }
@@ -420,9 +383,7 @@ impl ServerManager {
         }
     }
     
-    // Persistence methods
     pub fn save_servers(&self) -> Result<(), String> {
-        // Create the directory if it doesn't exist
         if let Some(parent) = Path::new(&self.persistence_file).parent() {
             if !parent.exists() {
                 std::fs::create_dir_all(parent)
@@ -430,23 +391,21 @@ impl ServerManager {
             }
         }
         
-        // Prepare server data for serialization (without process handles)
         let mut server_data = Vec::new();
         for (id, server) in &self.servers {
             server_data.push(ServerInfo {
                 id: id.clone(),
                 config: server.config.clone(),
                 status: server.status.clone(),
-                players: 0, // We don't persist player count
-                max_players: 20, // Default max players
+                players: 0,
+                max_players: 20,
             });
         }
         
-        // Serialize to JSON
         let json = serde_json::to_string_pretty(&server_data)
             .map_err(|e| format!("Failed to serialize servers: {}", e))?;
         
-        // Write to file
+
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -467,7 +426,6 @@ impl ServerManager {
             return Ok(());
         }
         
-        // Read the file
         let mut file = OpenOptions::new()
             .read(true)
             .open(&self.persistence_file)
@@ -482,18 +440,16 @@ impl ServerManager {
             return Ok(());
         }
         
-        // Deserialize from JSON
         let server_data: Vec<ServerInfo> = serde_json::from_str(&contents)
             .map_err(|e| format!("Failed to deserialize servers: {}", e))?;
         
         let server_count = server_data.len();
         
-        // Add servers to the manager
         for server_info in server_data {
             self.servers.insert(server_info.id.clone(), ServerProcess {
                 config: server_info.config,
                 process: None,
-                status: "offline".to_string(), // Always start as offline
+                status: "offline".to_string(),
                 output: Arc::new(Mutex::new(Vec::new())),
                 stdin: None,
             });
@@ -504,7 +460,6 @@ impl ServerManager {
     }
 }
 
-// Tauri command wrappers
 type ServerManagerState<'a> = State<'a, Arc<Mutex<ServerManager>>>;
 
 #[tauri::command]
@@ -618,11 +573,9 @@ pub async fn download_and_install_mod(
     println!("Folder: {}", folder);
     println!("Filename: {}", filename);
     
-    // Create the full mod folder path
     let mod_folder = format!("{}/{}", server_path, folder).replace("//", "/");
     println!("Full mod folder path: {}", mod_folder);
     
-    // Create the mod folder if it doesn't exist
     match std::fs::create_dir_all(&mod_folder) {
         Ok(_) => println!("Successfully created/verified mod folder: {}", mod_folder),
         Err(e) => {
@@ -632,11 +585,9 @@ pub async fn download_and_install_mod(
         }
     }
     
-    // Create the full destination path
     let destination = format!("{}/{}", mod_folder, filename).replace("//", "/");
     println!("Full destination path: {}", destination);
     
-    // Download the mod file
     println!("Starting download to {}", destination);
     match download_file(url, destination.clone()).await {
         Ok(_) => println!("Successfully downloaded mod file"),
@@ -647,7 +598,6 @@ pub async fn download_and_install_mod(
         }
     }
     
-    // Verify the file exists
     match std::fs::metadata(&destination) {
         Ok(metadata) => println!("Verified file exists with size: {} bytes", metadata.len()),
         Err(e) => {
@@ -661,20 +611,17 @@ pub async fn download_and_install_mod(
     Ok(destination)
 }
 
-// Add a download function to handle file downloads
 #[tauri::command]
 pub async fn download_file(url: String, destination: String) -> Result<String, String> {
     println!("=== Starting file download ===");
     println!("URL: {}", url);
     println!("Destination: {}", destination);
     
-    // Create a reqwest client with a longer timeout
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(300))  // 5 minute timeout
+        .timeout(std::time::Duration::from_secs(300))
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
     
-    // Send the request
     println!("Sending HTTP request...");
     let response = client.get(&url)
         .header("User-Agent", "ServerMint/1.0")
@@ -682,7 +629,6 @@ pub async fn download_file(url: String, destination: String) -> Result<String, S
         .await
         .map_err(|e| format!("Failed to send request: {}", e))?;
 
-    // Check if request was successful
     if !response.status().is_success() {
         let error_msg = format!("Failed to download: HTTP status {}", response.status());
         println!("Error: {}", error_msg);
@@ -690,11 +636,9 @@ pub async fn download_file(url: String, destination: String) -> Result<String, S
     }
     println!("Received successful HTTP response");
 
-    // Get the total size if available
     let total_size = response.content_length().unwrap_or(0);
     println!("Total file size: {} bytes", total_size);
 
-    // Create the destination directory if it doesn't exist
     println!("Creating parent directories if needed...");
     if let Some(parent) = std::path::Path::new(&destination).parent() {
         if !parent.exists() {
@@ -704,12 +648,10 @@ pub async fn download_file(url: String, destination: String) -> Result<String, S
         }
     }
 
-    // Open file for writing
     println!("Opening destination file...");
     let mut file = std::fs::File::create(&destination)
         .map_err(|e| format!("Failed to create file: {}", e))?;
 
-    // Download the file in chunks
     println!("Starting download...");
     let mut downloaded: u64 = 0;
     let mut stream = response.bytes_stream();
@@ -727,7 +669,6 @@ pub async fn download_file(url: String, destination: String) -> Result<String, S
         }
     }
 
-    // Verify the downloaded file
     println!("Verifying downloaded file...");
     match std::fs::metadata(&destination) {
         Ok(metadata) => {
@@ -735,7 +676,6 @@ pub async fn download_file(url: String, destination: String) -> Result<String, S
             if total_size > 0 && file_size != total_size {
                 let error_msg = format!("File size mismatch. Expected: {}, Got: {}", total_size, file_size);
                 println!("Error: {}", error_msg);
-                // Try to clean up the incomplete file
                 let _ = std::fs::remove_file(&destination);
                 return Err(error_msg);
             }
@@ -752,11 +692,9 @@ pub async fn download_file(url: String, destination: String) -> Result<String, S
     Ok(destination)
 }
 
-// Add a function to extract ZIP files
 async fn extract_zip(zip_path: &str, extract_to: &str) -> Result<(), String> {
     println!("Extracting {} to {}", zip_path, extract_to);
     
-    // Use the zip crate to extract the file
     let file = File::open(zip_path)
         .map_err(|e| format!("Failed to open zip file: {}", e))?;
     
@@ -770,11 +708,9 @@ async fn extract_zip(zip_path: &str, extract_to: &str) -> Result<(), String> {
         let outpath = PathBuf::from(extract_to).join(file.name());
         
         if file.name().ends_with('/') {
-            // Create directory
             std::fs::create_dir_all(&outpath)
                 .map_err(|e| format!("Failed to create directory: {}", e))?;
         } else {
-            // Create parent directory if it doesn't exist
             if let Some(p) = outpath.parent() {
                 if !p.exists() {
                     std::fs::create_dir_all(p)
@@ -782,7 +718,6 @@ async fn extract_zip(zip_path: &str, extract_to: &str) -> Result<(), String> {
                 }
             }
             
-            // Extract file
             let mut outfile = File::create(&outpath)
                 .map_err(|e| format!("Failed to create file: {}", e))?;
             
@@ -795,7 +730,6 @@ async fn extract_zip(zip_path: &str, extract_to: &str) -> Result<(), String> {
     Ok(())
 }
 
-// Add a function to setup a new server
 #[tauri::command]
 pub async fn setup_server(
     state: ServerManagerState<'_>,
@@ -808,11 +742,9 @@ pub async fn setup_server(
 ) -> Result<String, String> {
     println!("Setting up server {} at {} with type {} version {}", server_id, server_path, server_type, version);
     
-    // Create the server directory
     std::fs::create_dir_all(&server_path)
         .map_err(|e| format!("Failed to create server directory: {}", e))?;
     
-    // Determine the download URL based on server type and version
     let final_url = match download_url {
         Some(url) => url,
         None => {
@@ -828,19 +760,15 @@ pub async fn setup_server(
         }
     };
     
-    // For Bedrock servers, we need to handle them differently
     let is_bedrock = server_type.to_lowercase() == "pocketmine";
     
     if is_bedrock {
-        // For PocketMine-MP, download the .phar file directly
         let phar_path = format!("{}/PocketMine-MP.phar", server_path);
         download_file(final_url, phar_path.clone()).await?;
         
-        // Download and extract PocketMine-MP PHP binary automatically
         println!("Downloading PocketMine-MP PHP binary...");
         let php_zip_path = format!("{}/php.zip", server_path);
         
-        // Try different PHP binary URLs with correct format
         let php_urls = vec![
             "https://github.com/pmmp/PHP-Binaries/releases/download/pm5-php-8.3-latest/PHP-8.3-Windows-x64-PM5.zip",
             "https://github.com/pmmp/PHP-Binaries/releases/download/pm5-php-8.2-latest/PHP-8.2-Windows-x64-PM5.zip",
@@ -868,19 +796,16 @@ pub async fn setup_server(
         
         if download_success {
             println!("PHP binary downloaded successfully, extracting...");
-            // Extract the ZIP file
             if let Err(e) = extract_zip(&php_zip_path, &server_path).await {
                 println!("Warning: Failed to extract PHP binary: {}", e);
             } else {
                 println!("PHP binary extracted successfully");
-                // Clean up the zip file
                 let _ = std::fs::remove_file(&php_zip_path);
             }
         } else {
             println!("Warning: Failed to download PHP binary from all URLs, will use system PHP");
         }
         
-        // Create a startup script that uses the local PHP
         let start_script = format!(
             "@echo off
 echo ========================================
@@ -904,7 +829,6 @@ if exist bin\\php\\php.exe (
         std::fs::write(&start_script_path, start_script)
             .map_err(|e| format!("Failed to write start.bat: {}", e))?;
             
-        // Also create a shell script for cross-platform compatibility
         let start_sh = format!(
             "#!/bin/sh
 echo Starting PocketMine-MP Bedrock Server...
@@ -915,11 +839,9 @@ php PocketMine-MP.phar"
         std::fs::write(&start_sh_path, start_sh)
             .map_err(|e| format!("Failed to write start.sh: {}", e))?;
     } else {
-        // For Java servers, download the server jar
         let jar_path = format!("{}/server.jar", server_path);
         download_file(final_url, jar_path.clone()).await?;
-        
-        // For Java servers, create the standard startup scripts
+
         let start_script = format!(
             "@echo off
 start /min java -Xmx{}M -Xms1G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -jar server.jar nogui",
@@ -930,7 +852,6 @@ start /min java -Xmx{}M -Xms1G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxG
         std::fs::write(&start_script_path, start_script)
             .map_err(|e| format!("Failed to write start.bat: {}", e))?;
             
-        // Also create a shell script for cross-platform compatibility
         let start_sh = format!(
             "#!/bin/sh
 java -Xmx{}M -Xms1G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -jar server.jar nogui",
@@ -942,9 +863,7 @@ java -Xmx{}M -Xms1G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMilli
             .map_err(|e| format!("Failed to write start.sh: {}", e))?;
     }
     
-    // Create server.properties file
     let server_properties = if is_bedrock {
-        // PocketMine-MP configuration
         format!(
             "# PocketMine-MP server properties
 server-port=19132
@@ -1056,7 +975,6 @@ motd=A Minecraft Server"
     std::fs::write(&properties_path, server_properties)
         .map_err(|e| format!("Failed to write server.properties: {}", e))?;
     
-    // Create eula.txt file
     let eula_content = format!(
         "#By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).
 #{}
@@ -1068,7 +986,6 @@ eula=true",
     std::fs::write(&eula_path, eula_content)
         .map_err(|e| format!("Failed to write eula.txt: {}", e))?;
     
-    // Create additional directories
     let dirs = ["world", "logs", "plugins", "mods"];
     for dir in &dirs {
         let dir_path = format!("{}/{}", server_path, dir);
@@ -1076,7 +993,6 @@ eula=true",
             .map_err(|e| format!("Failed to create {} directory: {}", dir, e))?;
     }
     
-    // Add the server to the manager
     let mut manager = state.lock().map_err(|_| "Failed to lock server manager")?;
     
     let config = ServerConfig {
@@ -1084,17 +1000,16 @@ eula=true",
         path: server_path.clone(),
         version,
         server_type,
-        java_path: None, // Will use system default
-        min_memory: if is_bedrock { 512 } else { 1024 }, // Bedrock servers use less memory
-        max_memory: if is_bedrock { 2048 } else { 4096 }, // Bedrock servers use less memory
+        java_path: None,
+        min_memory: if is_bedrock { 512 } else { 1024 },
+        max_memory: if is_bedrock { 2048 } else { 4096 },
         jvm_args: None,
-        port: if is_bedrock { 19132 } else { 25565 }, // Bedrock uses port 19132, Java uses 25565
+        port: if is_bedrock { 19132 } else { 25565 },
     };
     
     println!("Adding server {} to manager with config: {:?}", server_id, config);
     manager.add_server(server_id.clone(), config)?;
     
-    // Verify the server was added
     if let Some(server) = manager.servers.get(&server_id) {
         println!("Server {} successfully added to manager, status: {}", server_id, server.status);
     } else {
@@ -1105,7 +1020,6 @@ eula=true",
     Ok(server_path)
 }
 
-// Add a command to check if Java is available
 #[tauri::command]
 pub fn check_java() -> Result<String, String> {
     println!("Checking if Java is available...");
@@ -1128,24 +1042,20 @@ pub fn check_java() -> Result<String, String> {
     }
 }
 
-// Add a command to download and setup Java 21
 #[tauri::command]
 pub async fn setup_java() -> Result<String, String> {
     println!("Setting up Java 21...");
     
-    // Create Java directory
     let java_dir = "C:/servermint/java";
     std::fs::create_dir_all(java_dir)
         .map_err(|e| format!("Failed to create Java directory: {}", e))?;
     
-    // Download Java 21 for Windows (using OpenJDK 21 from Adoptium)
     let java_url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.2%2B13/OpenJDK21U-jdk_x64_windows_hotspot_21.0.2_13.zip";
     let java_zip_path = format!("{}/OpenJDK21U-jdk_x64_windows_hotspot_21.0.2_13.zip", java_dir);
     
     println!("Downloading Java 21 from {}", java_url);
     download_file(java_url.to_string(), java_zip_path.clone()).await?;
     
-    // Extract the zip file
     println!("Extracting Java...");
     let mut extract_command = Command::new("powershell");
     extract_command.args(&[
@@ -1153,9 +1063,8 @@ pub async fn setup_java() -> Result<String, String> {
         &format!("Expand-Archive -Path '{}' -DestinationPath '{}' -Force", java_zip_path, java_dir)
     ]);
     
-    // Hide the window on Windows
     #[cfg(target_os = "windows")]
-    extract_command.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+    extract_command.creation_flags(0x08000000);
     
     let extract_result = extract_command.output();
     
@@ -1164,7 +1073,6 @@ pub async fn setup_java() -> Result<String, String> {
             if output.status.success() {
                 println!("Java extracted successfully");
                 
-                // Find the extracted directory
                 let entries = std::fs::read_dir(java_dir)
                     .map_err(|e| format!("Failed to read Java directory: {}", e))?;
                 
@@ -1176,8 +1084,7 @@ pub async fn setup_java() -> Result<String, String> {
                             if java_bin.exists() {
                                 let java_path = java_bin.to_string_lossy().to_string();
                                 println!("Java 17 found at: {}", java_path);
-                                
-                                // Test the Java installation
+                                            
                                 match Command::new(&java_path).arg("-version").output() {
                                     Ok(test_output) => {
                                         if test_output.status.success() {
@@ -1205,11 +1112,9 @@ pub async fn setup_java() -> Result<String, String> {
     }
 }
 
-// Internal function to get Java path (used by other functions in this module)
 fn get_java_path_internal(version: Option<String>) -> Result<String, String> {
     let _required_version = version.unwrap_or_else(|| "17".to_string());
     
-    // First check if we have a local Java installation
     let java_dir = "C:/servermint/java";
     println!("Checking for local Java in: {}", java_dir);
     
@@ -1235,7 +1140,6 @@ fn get_java_path_internal(version: Option<String>) -> Result<String, String> {
                             let java_path = java_bin.to_string_lossy().to_string();
                             println!("Found local Java at: {}", java_path);
                             
-                            // Test the Java installation
                             match Command::new(&java_path).arg("-version").output() {
                                 Ok(output) => {
                                     if output.status.success() {
@@ -1261,12 +1165,10 @@ fn get_java_path_internal(version: Option<String>) -> Result<String, String> {
         println!("Java directory does not exist: {}", java_dir);
     }
     
-    // Fall back to system Java
     println!("No local Java found, using system Java");
     Ok("java".to_string())
 }
 
-// Add a command to get the Java path for a specific version
 #[tauri::command]
 pub fn get_java_path(version: Option<String>) -> Result<String, String> {
     get_java_path_internal(version)

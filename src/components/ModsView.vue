@@ -293,7 +293,7 @@
               :disabled="loadingVersions"
             ></v-select>
 
-            <div class="text-subtitle-1 mb-2">Installation Location</div>
+          <div class="text-subtitle-1 mb-2">Installation Location</div>
             <v-text-field
               v-model="targetFolder"
               variant="outlined"
@@ -311,7 +311,6 @@
               Folder will be created if it doesn't exist
             </div>
 
-            <!-- Installation Details -->
             <v-expand-transition>
               <div v-if="targetServerId && targetFolder" class="installation-details pa-3 rounded bg-surface">
                 <div class="text-caption mb-2">Installation Summary:</div>
@@ -355,7 +354,6 @@
       </v-card>
     </v-dialog>
 
-    <!-- Mod details dialog -->
     <v-dialog v-model="showModDetailsDialog" max-width="700px">
       <v-card color="#1E1E1E">
         <v-card-title class="text-h5 font-weight-bold">{{ selectedMod?.name }}</v-card-title>
@@ -392,7 +390,6 @@
       </v-card>
     </v-dialog>
     
-    <!-- Modpack Installer Dialog -->
     <v-dialog v-model="showModpackInstaller" max-width="900px" :persistent="modpackInstalling">
       <ModpackInstaller 
         @close="showModpackInstaller = false" 
@@ -401,7 +398,7 @@
       />
     </v-dialog>
     
-    <!-- Custom context menu -->
+    <!-- Custom context menu -->  
     <div 
       v-if="contextMenu.show" 
       class="context-menu" 
@@ -444,46 +441,40 @@ export default {
   },
   data() {
     return {
-      activeTab: 'modpacks', // Default to Modpacks tab
-      contentTab: 'available', // Default to Available mods/modpacks
+      activeTab: 'modpacks', 
+      contentTab: 'available', 
       sortBy: 'Downloads',
       viewCount: 20,
       currentPage: 1,
       selectedServer: null,
       selectedType: 'All',
       selectedSource: 'All',
-      selectedVersion: '1.20.1', // Default version
+      selectedVersion: '1.20.1', 
       searchQuery: '',
-      searchTimeout: null, // For debouncing search
-      servers: [], // Will be populated from store
+      searchTimeout: null, 
+      servers: [], 
       // Original data store for installed mods
       installedMods: [],
-      // Original data store for available mods
-      availableMods: [], // Start with empty array, will be populated by API
+      availableMods: [], 
       
-      // Server selection dialog
       serverSelectionDialog: false,
       pendingModInstall: null,
       targetServerId: null,
-      targetFolder: null, // New for server selection dialog
-      installLoading: false, // New for install button loading
+      targetFolder: null, 
+      installLoading: false, 
       
-      // Version selection
       selectedModVersion: null,
       availableModVersions: [],
       loadingVersions: false,
       
-      // Local mod import dialog
       importLocalDialog: false,
       localModFile: null,
       localModTargetServer: null,
-      localModTargetFolder: null, // New for local mod import dialog
+      localModTargetFolder: null, 
       
-      // Mod details dialog
       showModDetailsDialog: false,
       selectedMod: null,
       
-      // Custom context menu
       contextMenu: {
         show: false,
         x: 0,
@@ -491,11 +482,9 @@ export default {
         mod: null
       },
       
-      // Modpack installer
       showModpackInstaller: false,
       modpackInstalling: false,
       
-      // Sample data for repository
       modCategories: [
         'All',
         'Optimization',
@@ -523,24 +512,19 @@ export default {
         '1.16.5'
       ],
       
-      // Loading state
       isLoading: false,
-      store: store // Add store reference
+      store: store 
     }
   },
   computed: {
     filteredInstalledMods() {
       return this.installedMods.filter(mod => {
-        // Server filter
         if (mod.serverId !== this.selectedServer) return false;
         
-        // Type filter
         if (this.selectedType !== 'All' && mod.type !== this.selectedType) return false;
         
-        // Source filter
         if (this.selectedSource !== 'All' && mod.source !== this.selectedSource) return false;
         
-        // Search query
         if (this.searchQuery && !this.matchesSearch(mod, this.searchQuery)) return false;
         
         return true;
@@ -549,16 +533,12 @@ export default {
     
     filteredAvailableMods() {
       return this.availableMods.filter(mod => {
-        // Type filter
         if (this.selectedType !== 'All' && mod.type !== this.selectedType) return false;
         
-        // Source filter
         if (this.selectedSource !== 'All' && mod.source !== this.selectedSource) return false;
         
-        // Search query
         if (this.searchQuery && !this.matchesSearch(mod, this.searchQuery)) return false;
         
-        // Don't show mods that are already installed on the selected server
         const alreadyInstalled = this.installedMods.some(installedMod => 
           installedMod.name === mod.name && 
           installedMod.serverId === this.selectedServer
@@ -569,20 +549,16 @@ export default {
     }
   },
   async created() {
-    // Load servers when component is created
     await this.loadServers();
     
-    // Load installed mods for the selected server
     if (this.selectedServer) {
       this.installedMods = await this.store.getInstalledMods(this.selectedServer);
     }
     
-    // Initialize repository mods
     this.loadAvailableMods();
   },
   
   watch: {
-    // Watch for server changes to load its mods
     async selectedServer(newServerId) {
       if (newServerId) {
         this.installedMods = await this.store.getInstalledMods(newServerId);
@@ -594,11 +570,9 @@ export default {
   methods: {
     async loadServers() {
       try {
-        // Load servers from store
         await this.store.loadServers();
         this.servers = this.store.servers;
         
-        // Set default selected server if we have servers
         if (this.servers.length > 0 && !this.selectedServer) {
           this.selectedServer = this.servers[0].id;
         }
@@ -612,10 +586,8 @@ export default {
       }
     },
 
-    // filterMods() { // This method is removed
-    //   // Filter installed mods
-    //   this.filteredInstalledMods = this.installedMods.filter(mod => {
-    //     // Server filter
+    // filterMods() { 
+    // this.filteredInstalledMods = this.installedMods.filter(mod => {
     //     if (mod.serverId !== this.selectedServer) return false;
         
     //     // Type filter
@@ -652,10 +624,8 @@ export default {
     // },
     
     matchesSearch(mod, query) {
-      // Convert to lowercase for case-insensitive search
       query = query.toLowerCase();
       
-      // Search in name, description, type, version, source
       return mod.name.toLowerCase().includes(query) ||
         mod.description.toLowerCase().includes(query) ||
         mod.type.toLowerCase().includes(query) ||
@@ -667,16 +637,13 @@ export default {
       console.log('=== Starting mod installation flow ===');
       console.log('Selected mod:', mod);
       
-      // Set pending mod and show server selection dialog
       this.pendingModInstall = mod;
-      this.targetServerId = this.selectedServer; // Default to currently selected server
-      this.targetFolder = 'mods'; // Default to mods folder
-      this.selectedModVersion = null; // Reset version selection
+      this.targetServerId = this.selectedServer; 
+      this.targetFolder = 'mods'; 
+      this.selectedModVersion = null; 
       
-      // Fetch available versions
       await this.fetchModVersions(mod.id);
       
-      // Log the current state
       console.log('Current state:', {
         pendingMod: this.pendingModInstall,
         targetServer: this.targetServerId,
@@ -700,7 +667,6 @@ export default {
         
         const versions = await response.json();
         
-        // Map versions to format for v-select
         this.availableModVersions = versions.map(version => ({
           title: `${version.version_number} (${version.game_versions.join(', ')})`,
           value: {
@@ -711,7 +677,6 @@ export default {
           }
         }));
         
-        // Set default version to the latest one that matches current game version
         const defaultVersion = versions.find(v => 
           v.game_versions.includes(this.selectedVersion)
         );
@@ -748,7 +713,6 @@ export default {
 
       this.installLoading = true;
       
-      // Update the mod object with selected version information
       const modToInstall = {
         ...this.pendingModInstall,
         version: this.selectedModVersion.version,
@@ -766,14 +730,12 @@ export default {
         console.log('=== Starting mod installation process ===');
         console.log('Mod details:', mod);
         
-        // Validate server exists
         const server = this.servers.find(s => s.id === this.targetServerId);
         if (!server) {
           throw new Error('Selected server not found');
         }
         console.log('Server found:', server);
         
-        // First, get the download URL if not provided
         let downloadUrl = mod.download_url;
         let version = mod.version;
         
@@ -802,7 +764,6 @@ export default {
           throw new Error('No download URL available for this mod');
         }
 
-        // Create the installation folder if it doesn't exist
         try {
           console.log('Creating mod folder...');
           const folderResult = await this.store.createModFolder(this.targetServerId, this.targetFolder);
@@ -817,7 +778,6 @@ export default {
           throw new Error(`Failed to create installation folder: ${error.message}`);
         }
         
-        // Log what we're about to do
         console.log('=== Installation parameters ===');
         console.log(`Mod name: ${mod.name}`);
         console.log(`Download URL: ${downloadUrl}`);
@@ -826,7 +786,6 @@ export default {
         console.log(`Server path: ${server.path}`);
         console.log(`Target folder: ${this.targetFolder}`);
         
-        // Download and install the mod
         try {
           const filename = `${mod.name.replace(/[^a-zA-Z0-9-_]/g, '_')}-${version}.jar`;
           const params = {
@@ -842,7 +801,6 @@ export default {
           const result = await invoke('download_and_install_mod', params);
           console.log('Installation successful! File path:', result);
           
-          // Verify the file exists
           try {
             const fileExists = await invoke('plugin:fs|exists', { 
               path: result 
@@ -856,7 +814,6 @@ export default {
             throw new Error(`Failed to verify installed file: ${error.message}`);
           }
           
-          // Add to installed mods
           const modToInstall = {
             ...mod,
             serverId: this.targetServerId,
@@ -871,7 +828,6 @@ export default {
           
           console.log('Adding mod to installed list:', modToInstall);
           
-          // Update store's installed mods
           const addResult = await this.store.addInstalledMod(modToInstall);
           console.log('Add to store result:', addResult);
           
@@ -879,17 +835,14 @@ export default {
             throw new Error('Failed to update installed mods list');
           }
           
-          // Update local lists
           this.installedMods = await this.store.getInstalledMods(this.targetServerId);
           this.availableMods = this.availableMods.filter(m => m.id !== mod.id);
           
           console.log('Updated installed mods:', this.installedMods);
           
-          // Close dialog and clean up
           this.serverSelectionDialog = false;
           this.pendingModInstall = null;
           
-          // Show success notification
           const successMessage = `${mod.name} has been installed successfully to ${server.name}`;
           console.log('Installation complete:', successMessage);
           
@@ -920,7 +873,6 @@ export default {
 
     async uninstallMod(mod) {
       try {
-        // Remove the mod file
         const server = this.servers.find(s => s.id === mod.serverId);
         if (!server) {
           throw new Error('Server not found');
@@ -935,16 +887,13 @@ export default {
           throw new Error(`Failed to remove mod file: ${error.message}`);
         }
 
-        // Remove from installed mods in store
         const removeResult = await this.store.removeInstalledMod(mod.serverId, mod.name);
         if (!removeResult) {
           throw new Error('Failed to update installed mods list');
         }
 
-        // Update local list
         this.installedMods = await this.store.getInstalledMods(mod.serverId);
 
-        // Add back to available mods if it was from a repository
         if (mod.source !== 'Local') {
           const availableMod = {
             name: mod.name,
@@ -961,7 +910,6 @@ export default {
           }
         }
 
-        // Show success notification
         if (window.showSuccess) {
           window.showSuccess(
             'Mod Uninstalled',
@@ -981,50 +929,42 @@ export default {
     },
     
     checkForUpdates(mod) {
-      // In a real app, this would check for updates from the mod source
       console.log('Check for updates', mod.name);
       
-      // Simulate update check
       alert(`No updates available for ${mod.name}`);
     },
     
     importLocalMod() {
       this.localModFile = null;
-      this.localModTargetServer = this.selectedServer; // Default to currently selected server
-      this.localModTargetFolder = 'mods'; // Default to mods folder
+      this.localModTargetServer = this.selectedServer; 
+      this.localModTargetFolder = 'mods'; 
       this.importLocalDialog = true;
     },
     
     confirmLocalModImport() {
       if (!this.localModFile || !this.localModTargetServer) return;
       
-      // In a real app, this would process the file and extract mod metadata
       const fileName = this.localModFile.name;
       
-      // Create a new mod entry from the file (in a real app, metadata would be extracted)
       const newMod = {
         name: fileName.replace('.jar', ''),
-        version: '1.0.0', // In a real app, this would be extracted from the file
-        type: 'Mod', // In a real app, this would be determined from the file
+        version: '1.0.0', 
+        type: 'Mod', 
         description: 'Imported local mod',
         image: '',
         source: 'Local',
         serverId: this.localModTargetServer,
-        folder: this.localModTargetFolder // Add folder to the mod object
+        folder: this.localModTargetFolder 
       };
       
-      // Add to installed mods
       this.installedMods.push(newMod);
       
-      // Close dialog and update filtered lists
       this.importLocalDialog = false;
       
-      // Show notification (would be implemented in a real app)
       alert(`Local mod ${newMod.name} imported successfully to ${this.getServerName(newMod.serverId)}`);
     },
     
     searchRepository() {
-      // In a real app, this would send a request to the API with filters
       console.log('Searching repository with:', {
         query: this.repositorySearch,
         source: this.repositorySource,
@@ -1032,26 +972,20 @@ export default {
         gameVersion: this.repositoryGameVersion
       });
       
-      // Simulate filtered results based on our sample data
-      // In a real app, this would be handled by the API
       const query = this.repositorySearch.toLowerCase();
       this.repositoryMods = this.repositoryMods.filter(mod => {
-        // Filter by source
         if (this.repositorySource !== 'All Sources' && mod.source !== this.repositorySource) {
           return false;
         }
         
-        // Filter by category
         if (this.repositoryCategory !== 'All' && mod.category !== this.repositoryCategory) {
           return false;
         }
         
-        // Filter by game version
         if (!mod.gameVersions.includes(this.repositoryGameVersion)) {
           return false;
         }
         
-        // Filter by search query
         if (query && !mod.name.toLowerCase().includes(query) && !mod.description.toLowerCase().includes(query)) {
           return false;
         }
@@ -1078,9 +1012,8 @@ export default {
 
     async fetchModrinthMods() {
       const query = encodeURIComponent(this.searchQuery || 'mod');
-      // Add proper facets for Minecraft mods and version filtering
       const gameVersion = encodeURIComponent('1.20.1');
-      const limit = 100; // Increase the limit to fetch more mods
+      const limit = 100; 
       const url = `https://api.modrinth.com/v2/search?query=${query}&limit=${limit}&facets=[["project_type:mod"],["versions:${gameVersion}"]]`;
       
       console.log("Fetching from Modrinth URL:", url);
@@ -1098,14 +1031,14 @@ export default {
         
         const mods = data.hits.map(mod => ({
           id: mod.project_id,
-          slug: mod.slug,  // Add slug for API calls
+          slug: mod.slug,  
           name: mod.title,
           version: mod.latest_version || 'Unknown',
           type: 'Mod',
           description: mod.description || 'No description available',
           image: mod.icon_url || '',
           source: 'Modrinth',
-          download_url: '', // Will be fetched when installing
+          download_url: '', 
           category: mod.categories?.[0] || 'Utility',
           downloads: mod.downloads || 0,
           gameVersions: mod.game_versions || ['1.20.1'],
@@ -1122,18 +1055,15 @@ export default {
     },
     
     async fetchRandomMods() {
-      // Base URL for mod search
       const baseUrl = 'https://api.modrinth.com/v2/search';
       
-      // Parameters for the search
       const params = new URLSearchParams({
-        limit: '70',  // Get 70 mods at a time
-        index: this.searchQuery ? 'relevance' : 'downloads',  // Sort by downloads if no search query
+        limit: '70',  
+        index: this.searchQuery ? 'relevance' : 'downloads',  
         offset: '0',
         facets: JSON.stringify([["project_type:mod"], [`versions:${this.selectedVersion}`]]),
       });
 
-      // Add search query if exists
       if (this.searchQuery) {
         params.append('query', this.searchQuery);
       }
@@ -1163,7 +1093,7 @@ export default {
             description: mod.description || 'No description available',
             image: mod.icon_url || '',
             source: 'Modrinth',
-            download_url: '', // Will be fetched when installing
+            download_url: '', 
             category: mod.categories?.[0] || 'Utility',
             downloads: mod.downloads || 0,
             gameVersions: mod.game_versions || [this.selectedVersion],
@@ -1188,19 +1118,15 @@ export default {
         
         let modrinthMods = [];
         
-        // If there's a search query, use search API
         modrinthMods = await this.fetchRandomMods();
         console.log(`Fetched ${modrinthMods.length} mods from Modrinth`);
         
-        // Update available mods with API data
         this.availableMods = [...modrinthMods];
         console.log("Updated availableMods array:", this.availableMods.length, "mods");
         console.log("First few mods:", this.availableMods.slice(0, 3));
         
-        // Switch to Available tab
         this.contentTab = 'available';
         
-        // If no mods found, show an alert
         if (modrinthMods.length === 0) {
           console.log("No mods found from API");
           if (this.searchQuery) {
@@ -1256,13 +1182,9 @@ export default {
     },
 
     getServerFolderOptions() {
-      // This function is not directly used in the template anymore,
-      // but it's kept for potential future use or if the dialog needs it.
-      // For now, it just returns a default option.
       return ['mods', 'plugins'];
     },
 
-    // New methods for modpack-specific functionality
     getModpackColor(name) {
       const colors = {
         'Sodium': 'success',
@@ -1305,46 +1227,41 @@ export default {
     },
 
     onSearchInput() {
-      // Clear any existing timeout
       if (this.searchTimeout) {
         clearTimeout(this.searchTimeout);
       }
       
-      // Set a new timeout to debounce the search
       this.searchTimeout = setTimeout(() => {
         this.loadAvailableMods();
-      }, 500); // Wait 500ms after user stops typing
+      }, 500); 
     },
 
     selectVersion(version) {
       console.log('Selecting version:', version);
       this.selectedVersion = version;
-      this.loadAvailableMods(); // Reload mods with new version
+      this.loadAvailableMods(); 
     },
 
     async getModDownloadUrl(modId) {
       try {
-        // First get the project information
         const projectResponse = await fetch(`https://api.modrinth.com/v2/project/${modId}`);
         if (!projectResponse.ok) {
           throw new Error('Failed to fetch project information');
         }
         const projectData = await projectResponse.json();
 
-        // Get latest version that matches our criteria
+
         const versionsResponse = await fetch(`https://api.modrinth.com/v2/project/${modId}/version`);
         if (!versionsResponse.ok) {
           throw new Error('Failed to fetch version information');
         }
         const versions = await versionsResponse.json();
 
-        // Get the latest version
         const latestVersion = versions[0];
         if (!latestVersion) {
           throw new Error('No versions found for this mod');
         }
 
-        // Get the primary file
         const primaryFile = latestVersion.files.find(f => f.primary) || latestVersion.files[0];
         if (!primaryFile) {
           throw new Error('No download file found');
@@ -1372,7 +1289,6 @@ export default {
   position: relative;
 }
 
-/* Navigation Tabs */
 .nav-tabs-toggle {
   background-color: rgba(30, 30, 30, 0.8);
   border-radius: 50px !important;
@@ -1388,7 +1304,6 @@ export default {
   color: #121212 !important;
 }
 
-/* Search and Filter Bar */
 .search-filter-bar {
   background-color: rgba(30, 30, 30, 0.8);
   border-radius: 8px;
@@ -1419,7 +1334,6 @@ export default {
   color: #121212 !important;
 }
 
-/* Content Tabs */
 .content-tabs-toggle {
   background-color: rgba(30, 30, 30, 0.8);
   border-radius: 50px !important;
@@ -1435,7 +1349,6 @@ export default {
   color: #121212 !important;
 }
 
-/* Modpack List */
 .modpack-list {
   display: flex;
   flex-direction: column;
@@ -1496,7 +1409,6 @@ export default {
   background-color: rgba(255, 255, 255, 0.02);
 }
 
-/* Modpack Icon */
 .modpack-icon {
   flex-shrink: 0;
   margin-right: 16px;
@@ -1523,7 +1435,6 @@ export default {
   color: white;
 }
 
-/* Install button overlay on hover */
 .install-overlay {
   position: absolute;
   top: 0;
@@ -1548,7 +1459,6 @@ export default {
   opacity: 1;
 }
 
-/* Modpack Details */
 .modpack-details {
   flex-grow: 1;
   margin-right: 16px;
@@ -1580,7 +1490,6 @@ export default {
   gap: 4px;
 }
 
-/* Modpack Stats */
 .modpack-stats {
   flex-shrink: 0;
   display: flex;
@@ -1613,7 +1522,6 @@ export default {
   min-width: 100px;
 }
 
-/* Custom context menu styling */
 .context-menu {
   position: fixed;
   z-index: 1000;
@@ -1648,7 +1556,7 @@ export default {
   margin: 4px 0;
 }
 
-/* Responsive Design */
+  
 @media (max-width: 768px) {
   .modpack-card {
     flex-direction: column;

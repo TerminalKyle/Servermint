@@ -1,7 +1,0 @@
-[agent]
-name = "VPS Node"
-port = 8080
-directory = "/var/lib/servermint"
-
-[servers]
-directory = "/var/lib/servermint/servers" 
