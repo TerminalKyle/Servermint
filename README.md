@@ -41,7 +41,7 @@ Control your update experience through the intuitive Settings panel:
 ### Orbit Hosting Partnership
 
 <a href="https://orbithosting.net/">
-  <img src="public/servermintbanner.png" alt="ServerMint Partner Banner" width="800">
+  <img src="public/orbithosting.png" alt="ServerMint Partner Banner" width="800">
 </a>
 
 ## Development
