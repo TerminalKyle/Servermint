@@ -38,7 +38,9 @@ Control your update experience through the intuitive Settings panel:
 - **Auto-Download**: Automatically download updates when available
 - **Auto-Install**: Automatically install downloaded updates
 
+### Orbit Hosting Partnership
 
+[![OrbitHosting](public/orbithosting.png)](https://orbithosting.net/)
 
 ## Development
 
